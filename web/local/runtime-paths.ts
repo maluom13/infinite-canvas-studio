@@ -18,6 +18,9 @@ export const PROJECT_ROOT = process.env.CANVAS_PROJECT_ROOT || "D:/CodexOutputs/
 export const TEMP_ROOT = process.env.CANVAS_TEMP || join(CODEX_HOME, "temp", "infinite-canvas");
 export const MUSE_INSTALL_CONFIG = process.env.MUSE_INSTALL_CONFIG || "D:/CodexOutputs/MuseCanvasData/install.json";
 
+/** 用户可编辑的配置文件位置：用来覆盖程序位置、端口、MuseCanvas 安装路径。 */
+export const CANVAS_CONFIG_PATH = process.env.CANVAS_CONFIG || join(PROJECT_ROOT, "canvas.config.json");
+
 /** 发布器、豆包、深度图等子目录都在数据目录下，统一走这里拼。 */
 export const dataPath = (...segments: string[]) => join(DATA_ROOT, ...segments);
 export const tempPath = (...segments: string[]) => join(TEMP_ROOT, ...segments);

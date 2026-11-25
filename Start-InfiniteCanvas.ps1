@@ -110,6 +110,11 @@ if (-not ((Test-Endpoint 'http://127.0.0.1:18610/healthz') -and (Test-Endpoint '
     }
 }
 
+# MuseCanvas 可能装在任意磁盘：把 install.json 位置传给前端进程，避免它去猜
+$museInstall = Get-Cfg 'museInstall' ''
+if (-not $museInstall -and $museLauncher) { $museInstall = Join-Path (Split-Path -Parent $museLauncher) 'MuseCanvasData\install.json' }
+if ($museInstall -and (Test-Path -LiteralPath $museInstall)) { $env:MUSE_INSTALL_CONFIG = $museInstall }
+
 if (-not (Test-Endpoint "http://127.0.0.1:$agentPort/health")) {
     # 不重定向 stdout：Start-Process 的重定向句柄会随本脚本退出而关闭，导致 node 写日志时报错退出；改用 --debug 让日志落到文件
     $agent = Start-Process -FilePath $node -ArgumentList @("`"$root\canvas-agent\dist\index.js`"", '--debug') -WorkingDirectory $root -WindowStyle Hidden -PassThru

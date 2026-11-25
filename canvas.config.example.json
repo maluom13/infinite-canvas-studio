@@ -8,8 +8,10 @@
     "chromePath": "",
     "_canvasProfile": "画布专用浏览器配置目录。留空则沿用 D:/CodexOutputs/MuseCanvasData/browser-profiles/canvas，不存在则在数据目录下新建。换掉这个目录会看起来像“画布全没了”",
     "canvasProfile": "",
-    "_museLauncher": "MuseCanvas 启动脚本。留空则自动查找",
+    "_museLauncher": "MuseCanvas 启动脚本。留空则从 museInstall 推导或自动查找",
     "museLauncher": "",
+    "_museInstall": "MuseCanvas 的 install.json 位置（MuseCanvasData\\install.json）。装在其他盘时填这里，否则自动探测",
+    "museInstall": "",
     "_ports": "端口被占用时改这里",
     "agentPort": 17381,
     "webPort": 3010

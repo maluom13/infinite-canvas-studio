@@ -1,16 +1,46 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream";
 import type { Plugin } from "vite";
 
-import { MUSE_INSTALL_CONFIG } from "./runtime-paths";
+import { CANVAS_CONFIG_PATH, MUSE_INSTALL_CONFIG } from "./runtime-paths";
 
 type Installation = { poolKey: string; ports: { pool: number; protocol: number } };
 type BridgeOptions = { readInstallation?: () => Promise<Installation> };
 
-const INSTALL_PATH = MUSE_INSTALL_CONFIG;
-const readInstallation = async (): Promise<Installation> => JSON.parse(await readFile(INSTALL_PATH, "utf8"));
+const exists = async (file: string) => {
+    try { await stat(file); return true; } catch { return false; }
+};
+
+/**
+ * 找 MuseCanvas 的 install.json。
+ * 顺序：环境变量 → 用户配置文件的 museInstall → 常见安装位置。
+ * MuseCanvas 可能装在任意磁盘，写死一个路径在别人机器上必然读不到。
+ */
+export async function resolveInstallPath(): Promise<string> {
+    if (process.env.MUSE_INSTALL_CONFIG && await exists(process.env.MUSE_INSTALL_CONFIG)) return process.env.MUSE_INSTALL_CONFIG;
+    const candidates: string[] = [];
+    try {
+        const cfg = JSON.parse(await readFile(CANVAS_CONFIG_PATH, "utf8")) as { museInstall?: string; museLauncher?: string; stateDir?: string };
+        if (cfg.museInstall) candidates.push(cfg.museInstall);
+        if (cfg.museLauncher) candidates.push(join(dirname(cfg.museLauncher), "MuseCanvasData", "install.json"));
+        if (cfg.stateDir) candidates.push(join(dirname(dirname(cfg.stateDir)), "MuseCanvasData", "install.json"));
+    } catch { /* 没有配置文件就走下面的探测 */ }
+    if (MUSE_INSTALL_CONFIG) candidates.push(MUSE_INSTALL_CONFIG);
+    if (process.env.LOCALAPPDATA) candidates.push(join(process.env.LOCALAPPDATA, "MuseCanvasData", "install.json"));
+    if (process.env.ProgramData) candidates.push(join(process.env.ProgramData, "MuseCanvasData", "install.json"));
+    for (const drive of ["C", "D", "E", "F", "G"]) {
+        candidates.push(`${drive}:/CodexOutputs/MuseCanvasData/install.json`);
+        candidates.push(`${drive}:/MuseCanvasData/install.json`);
+    }
+    for (const candidate of candidates) {
+        if (await exists(candidate)) return candidate;
+    }
+    throw new Error("找不到 MuseCanvas 的 install.json。请确认 MuseCanvas 已安装并已启动；如果装在别的位置，在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\\install.json。");
+}
+
+const readInstallation = async (): Promise<Installation> => JSON.parse(await readFile(await resolveInstallPath(), "utf8"));
 
 /**
  * 把生成协议池对齐到当前的账号列表。
@@ -18,7 +48,7 @@ const readInstallation = async (): Promise<Installation> => JSON.parse(await rea
  * 每次都报「No valid saved Muse session」，看起来像随机的生成失败。
  */
 export async function pruneProtocolAccounts(): Promise<number> {
-    const configPath = join(dirname(INSTALL_PATH), "protocol", "config.json");
+    const configPath = join(dirname(await resolveInstallPath()), "protocol", "config.json");
     const protocolConfig = JSON.parse(await readFile(configPath, "utf8")) as { api_key?: string; accounts?: { pool_account_id?: string }[] };
     const accounts = protocolConfig.accounts || [];
     if (!accounts.length) return 0;
@@ -57,7 +87,7 @@ export function createMuseBridge(options: BridgeOptions = {}) {
             const protocol = `http://127.0.0.1:${config.ports.protocol}`;
             if (url.pathname === "/muse/status" && req.method === "GET") {
                 const [accountsResponse, modelsResponse, networkResponse] = await Promise.all([fetch(`${pool}/admin/accounts`, { headers }), fetch(`${protocol}/v1/models`, { headers }), fetch(`${pool}/admin/network`, { headers }).catch(() => null)]);
-                if (!accountsResponse.ok || !modelsResponse.ok) return json(503, { error: "Muse 服务未就绪，请使用 D 盘启动入口重新启动服务。" });
+                if (!accountsResponse.ok || !modelsResponse.ok) return json(503, { error: "Muse 服务未就绪：账号池或生成协议没有响应。请确认 MuseCanvas 已启动（Muse 面板可看状态）。" });
                 const accounts = await accountsResponse.json();
                 const models = await modelsResponse.json();
                 const network = networkResponse?.ok ? await networkResponse.json() : null;
@@ -158,12 +188,14 @@ export function createMuseBridge(options: BridgeOptions = {}) {
                     pipeline(response, res, () => {});
                 }
             });
-            upstream.on("error", () => { if (!res.headersSent) json(503, { error: "无法连接本机 Muse 服务，请重新运行 D 盘启动入口。" }); else res.destroy(); });
+            upstream.on("error", () => { if (!res.headersSent) json(503, { error: "无法连接本机 Muse 服务。请确认 MuseCanvas 正在运行（Muse 面板可看状态）。" }); else res.destroy(); });
             req.on("aborted", () => upstream.destroy());
             res.on("close", () => { if (!res.writableEnded) upstream.destroy(); });
             req.pipe(upstream);
-        } catch {
-            if (!res.headersSent) json(503, { error: "无法读取本机 Muse 配置或连接服务，请重新运行 D 盘启动入口。" });
+        } catch (error) {
+            // 把具体原因透出去：多数情况是找不到 install.json 或 MuseCanvas 没启动，
+            // 一句笼统的「请重新运行启动入口」会让人不知道去改哪里。
+            if (!res.headersSent) json(503, { error: error instanceof Error ? error.message : "无法读取 MuseCanvas 配置。" });
         }
     };
 }

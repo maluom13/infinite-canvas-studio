@@ -133,15 +133,18 @@ foreach ($p in @(
     if (Test-Path -LiteralPath $p) { $museInstall = $p; break }
 }
 # 装在别的盘时靠端口判断（不做全盘搜索，避免在别人机器上扫几分钟）
+$museRunning = $false
 if (-not $museInstall) {
     try {
         $r = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:18610/healthz' -TimeoutSec 2
-        if ($r.StatusCode -eq 200) { $museInstall = '已在运行（端口 18610 有响应）' }
+        if ($r.StatusCode -eq 200) { $museRunning = $true }
     } catch { }
 }
 
 if ($museInstall) {
     Add-Result 'pass' 'MuseCanvas' $museInstall
+} elseif ($museRunning) {
+    Add-Result 'warn' 'MuseCanvas 在运行但找不到配置' "服务有响应，但读不到 install.json。请在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\install.json"
 } else {
     Add-Result 'warn' 'MuseCanvas 未安装' '画布能打开和编辑，但出不了图。请先自行安装 MuseCanvas 并登录自己的 Muse 账号'
 }
@@ -189,6 +192,11 @@ if (Test-Path -LiteralPath $configPath) {
         $dirty = $false
         if (-not $existing.nodePath -or -not (Test-Path -LiteralPath $existing.nodePath)) { $existing.nodePath = $node; $dirty = $true }
         if ($browser -and (-not $existing.chromePath -or -not (Test-Path -LiteralPath $existing.chromePath))) { $existing.chromePath = $browser; $dirty = $true }
+        $hasMuseField = $existing.PSObject.Properties.Name -contains 'museInstall'
+        if ($museInstall -and ((-not $hasMuseField) -or -not $existing.museInstall -or -not (Test-Path -LiteralPath $existing.museInstall))) {
+            $existing | Add-Member -NotePropertyName museInstall -NotePropertyValue $museInstall -Force
+            $dirty = $true
+        }
         if ($dirty) {
             [System.IO.File]::WriteAllText($configPath, ($existing | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
             Add-Result 'pass' '配置文件' '已存在，修正了失效的程序路径'
@@ -203,6 +211,7 @@ if (Test-Path -LiteralPath $configPath) {
         stateDir      = $DataDirectory
         nodePath      = $node
         chromePath    = if ($browser) { $browser } else { '' }
+        museInstall   = if ($museInstall) { $museInstall } else { '' }
         canvasProfile = ''
         museLauncher  = ''
         agentPort     = 17381
