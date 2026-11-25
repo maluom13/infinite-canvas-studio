@@ -2,23 +2,37 @@
 
 ## 复制给 AI 的安装指令
 
-把下面这段整块复制，发给任意能执行命令的 AI（Claude Code、Codex、WorkBuddy 等）：
+这套工具**出图/出视频依赖 MuseCanvas**（第三方软件，不在本仓库内）。所以要在对方电脑上装两样东西，顺序不能反。把下面整块复制，发给任意能执行命令的 AI（Claude Code、Codex、WorkBuddy 等）：
 
 ```text
-请把我这台 Windows 电脑装好 https://github.com/maluom13/infinite-canvas-studio 这个项目。
+请把我这台 Windows 电脑装好一整套 AI 内容生产工具。分两步，先装第三方依赖，再装主程序。
 
-先做三件事再动手：读仓库里的 INSTALLATION.md、确认要装到哪个磁盘目录、确认当前登录的 Windows 用户名。
-未经我同意不要默认占用 C 盘、不要删除任何已有数据、不要停止与我无关的程序、不要发起消耗额度的模型或生成测试。
+【第一步：MuseCanvas（第三方软件，提供出图/出视频能力）】
+1. 读 https://github.com/fangrui202575/muse-canvas-deploy 的 DEPLOY.md 和 manifest.json。
+2. 按 manifest 里的版本、文件名、大小、SHA-256 下载官方 Release 包，用 Get-FileHash 校验，
+   不一致就停下，不要继续。
+3. 解压后在该文件夹里运行 Install.ps1，显式指定非系统盘的目录和当前登录的 Windows 用户名：
+   -Destination 'D:\MuseCanvas' -DataDirectory 'D:\MuseCanvasData' -ForUser '当前用户名'
+   它的默认路径在 C 盘，不要省略这两个参数。
+4. 装完启动一次，确认画布、Agent、导出、授权、老接口、新接口六个服务都起来。
+   账号登录留给我本人，不要替我登录。
 
-按 INSTALLATION.md 的步骤执行：先确认 Node.js 18+ 和可用磁盘，然后运行仓库里的
-install.ps1（装在非系统盘就用 -Destination 指定目录）。它会自己安装依赖、构建并启动，
-结束时按「通过 / 未通过 / 未测试」逐项输出，请把这份结果原样告诉我。
-MuseCanvas 是第三方软件，如果本机没有，请停下来告诉我怎么装，不要替我下载或安装别人的软件。
-Muse、豆包、视频号、快手、抖音的账号登录必须由我本人完成，不要代我操作，也不要读取或保存我的密码、Cookie。
+【第二步：主程序】
+1. 读 https://github.com/maluom13/infinite-canvas-studio 的 INSTALLATION.md。
+2. 确认 Node.js 18 以上和可用磁盘，然后运行仓库里的 install.ps1
+   （装在非系统盘就用 -Destination 指定目录，例如 -Destination 'D:\InfiniteCanvas'）。
+3. 它会自己安装依赖、构建并启动，结束时按「通过 / 未通过 / 未测试」逐项输出，请原样告诉我。
 
-装完后逐项报告：通过什么、没通过什么、没测试什么。不要因为页面能打开就说全部成功；
-真实出图、真实发布属于要花额度或对账号有影响的操作，必须等我确认后再做。
+【通用约束】
+- 未经我同意不要默认占用 C 盘、不要删除任何已有数据、不要停止与我无关的程序、
+  不要发起消耗额度的模型或生成测试。
+- Muse、豆包、视频号、快手、抖音的账号登录必须由我本人完成，不要代我操作，
+  也不要读取或保存我的密码、Cookie。
+- 最后逐项报告：通过什么、没通过什么、没测试什么。不要因为页面能打开或显示"已连接"
+  就说全部成功。真实出图、真实发布属于会花额度或影响账号的操作，必须等我确认后再做。
 ```
+
+**只想要画布、不想要 MuseCanvas 时**（比如先看看界面），可以跳过第一步，直接执行第二步。画布能打开和编辑，但出不了图，Muse 面板会提示找不到配置。
 
 ---
 

@@ -146,7 +146,7 @@ if ($museInstall) {
 } elseif ($museRunning) {
     Add-Result 'warn' 'MuseCanvas 在运行但找不到配置' "服务有响应，但读不到 install.json。请在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\install.json"
 } else {
-    Add-Result 'warn' 'MuseCanvas 未安装' '画布能打开和编辑，但出不了图。请先自行安装 MuseCanvas 并登录自己的 Muse 账号'
+    Add-Result 'warn' 'MuseCanvas 未安装' '画布能打开和编辑，但出不了图。安装方法见下方说明'
 }
 
 # ---------------------------------------------------------------------------
@@ -292,6 +292,19 @@ Write-Host '  未测试（这类操作会花额度或影响账号，需要你本
 Write-Host '   - 真实出图 / 出视频：需要 MuseCanvas 已装且登录自己的 Muse 账号' -ForegroundColor Gray
 Write-Host '   - 真实发布：需要在「自动发布」页面逐个平台扫码登录' -ForegroundColor Gray
 Write-Host '   - Agent 对话：需要登录 Codex 或 Claude 的账号' -ForegroundColor Gray
+
+if (-not $museInstall) {
+    Write-Host ''
+    Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host '还没装 MuseCanvas，现在出不了图' -ForegroundColor Yellow
+    Write-Host '它是第三方软件，本脚本不代为下载安装（涉及对方的授权和你自己的账号）。' -ForegroundColor Gray
+    Write-Host '两种做法，装好后重启画布即可，不需要重装本程序：' -ForegroundColor Gray
+    Write-Host '  1) 把 INSTALLATION.md 顶部那段指令整块发给 AI，让它按官方文档装' -ForegroundColor Gray
+    Write-Host '  2) 自己打开 https://github.com/fangrui202575/muse-canvas-deploy 按说明装' -ForegroundColor Gray
+    Write-Host ''
+    Write-Host '装的时候注意：默认路径在 C 盘，要显式指定 -Destination 和 -DataDirectory 到非系统盘。' -ForegroundColor Gray
+    Write-Host '画布本身可以先用：打开后能新建节点、编辑、整理，只是点生成会提示没有可用模型。' -ForegroundColor Gray
+}
 
 Write-Host ''
 Write-Host "程序目录：$Destination" -ForegroundColor White
