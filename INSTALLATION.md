@@ -10,7 +10,9 @@
 先做三件事再动手：读仓库里的 INSTALLATION.md、确认要装到哪个磁盘目录、确认当前登录的 Windows 用户名。
 未经我同意不要默认占用 C 盘、不要删除任何已有数据、不要停止与我无关的程序、不要发起消耗额度的模型或生成测试。
 
-按 INSTALLATION.md 的步骤执行：检查 Node.js、安装依赖、构建 canvas-agent、启动服务。
+按 INSTALLATION.md 的步骤执行：先确认 Node.js 18+ 和可用磁盘，然后运行仓库里的
+install.ps1（装在非系统盘就用 -Destination 指定目录）。它会自己安装依赖、构建并启动，
+结束时按「通过 / 未通过 / 未测试」逐项输出，请把这份结果原样告诉我。
 MuseCanvas 是第三方软件，如果本机没有，请停下来告诉我怎么装，不要替我下载或安装别人的软件。
 Muse、豆包、视频号、快手、抖音的账号登录必须由我本人完成，不要代我操作，也不要读取或保存我的密码、Cookie。
 
@@ -57,22 +59,36 @@ git clone https://github.com/maluom13/infinite-canvas-studio.git .
 
 没有 git 时，也可以在仓库页面点 `Code → Download ZIP`，解压到上一步的目录。
 
-### 第三步：安装依赖
+### 第三步：一键安装
 
-两处都要装，前端和 Agent 是独立的。
+双击 `install.cmd`，或在 PowerShell 里运行：
 
 ```powershell
-Set-Location web
-npm install
-Set-Location ..
-
-Set-Location canvas-agent
-npm install
-npm run build
-Set-Location ..
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-`canvas-agent` 必须执行 `npm run build`，否则 `dist` 不存在，启动脚本会报错。
+脚本会依次完成：检查 Node.js 与浏览器 → 安装两处依赖并构建 Agent → 生成 `canvas.config.json` → 创建桌面快捷方式 → 启动服务。首次需要几分钟，过程中不要关闭窗口。
+
+常用参数：
+
+| 目的 | 命令 |
+|---|---|
+| 装到别的目录（建议非 C 盘） | `.\install.ps1 -Destination 'E:\InfiniteCanvas'` |
+| 指定数据目录 | `.\install.ps1 -DataDirectory 'E:\InfiniteCanvasData'` |
+| 不创建桌面快捷方式 | `.\install.ps1 -NoShortcut` |
+| 装完不自动启动 | `.\install.ps1 -NoStart` |
+| 依赖已装好，只更新程序 | `.\install.ps1 -SkipDeps` |
+
+结束时脚本会分别列出「通过 / 未通过 / 需要注意 / 未测试」，不会笼统地说装好了。
+
+也可以手动分步执行（等价于脚本做的事）：
+
+```powershell
+Set-Location web;           npm install; Set-Location ..
+Set-Location canvas-agent;  npm install; npm run build; Set-Location ..
+```
+
+`canvas-agent` 必须执行 `npm run build`，否则 `dist` 不存在，启动会报错。
 
 ### 第四步（可选）：自定义路径与端口
 
@@ -85,19 +101,21 @@ notepad canvas.config.json
 
 可配置项：数据目录、Node 路径、浏览器路径、画布浏览器配置目录、MuseCanvas 启动脚本、前端与 Agent 端口。
 
-### 第五步：启动
+### 第五步：日常启动与停止
+
+装好后桌面上会有两个快捷方式：「无限画布」和「无限画布 - 停止」，双击即可。
+
+也可以在程序目录里运行：
 
 ```powershell
+# 启动
 powershell -ExecutionPolicy Bypass -File .\Start-InfiniteCanvas.ps1
-```
 
-成功后浏览器会打开画布，终端输出 `Infinite Canvas is running: http://127.0.0.1:3010`。
-
-停止：
-
-```powershell
+# 停止
 powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 ```
+
+启动成功后浏览器会打开画布，终端输出 `Infinite Canvas is running: http://127.0.0.1:3010`。
 
 ## 数据放在哪里
 
