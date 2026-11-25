@@ -413,6 +413,7 @@ if ($doubaoReady) {
 # ---------------------------------------------------------------------------
 # 8. 快捷方式
 # ---------------------------------------------------------------------------
+$museLauncherRenamed = $false
 if (-not $NoShortcut) {
     Write-Step '创建桌面快捷方式'
     try {
@@ -436,6 +437,32 @@ if (-not $NoShortcut) {
         $lnkStop.Save()
 
         Add-Result 'pass' '桌面快捷方式' '「无限画布」与「无限画布 - 停止」'
+
+        # 桌面上可能还有 MuseCanvas 自己的启动器：点它打开的是它自带的画布（不是本程序），
+        # 对方很容易以为装错了。只改「启动器」这一类，浏览器 PWA 快捷方式（Muse.lnk）不要动。
+        $renamed = 0
+        $newName = 'MuseCanvas 启动器（会打开别人的画布）.lnk'
+        $desktops = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory')) | Where-Object { $_ }
+        foreach ($desk in $desktops) {
+            foreach ($item in Get-ChildItem -LiteralPath $desk -Filter '*.lnk' -ErrorAction SilentlyContinue) {
+                if ($item.Name -like '无限画布*') { continue }
+                try {
+                    $shortcut = $shell.CreateShortcut($item.FullName)
+                    $signature = "$($shortcut.TargetPath) $($shortcut.Arguments)"
+                    if ($signature -notmatch 'MuseCanvas-Launcher\.ps1|Manage\.ps1|MuseCanvas\.exe|MuseCanvas\.bat') { continue }
+                    if ($shortcut.TargetPath -match 'chrome|msedge|firefox') { continue }
+                    $newPath = Join-Path $desk $newName
+                    if ($item.FullName -ne $newPath -and -not (Test-Path -LiteralPath $newPath)) {
+                        Rename-Item -LiteralPath $item.FullName -NewName $newName -ErrorAction Stop
+                        $renamed++
+                    }
+                } catch { }
+            }
+        }
+        if ($renamed -gt 0) {
+            $museLauncherRenamed = $true
+            Add-Result 'pass' 'MuseCanvas 启动器已改名' '现在叫「MuseCanvas 启动器（会打开别人的画布）」，避免和本程序的「无限画布」点混'
+        }
     } catch {
         Add-Result 'warn' '桌面快捷方式' "创建失败：$($_.Exception.Message)。可直接运行 Start-InfiniteCanvas.ps1"
     }
@@ -480,6 +507,9 @@ if ($museInstall) {
     Write-Host '   - MuseCanvas 自带一个画布界面（localhost:3000），那是它自己的界面，不是本程序' -ForegroundColor Gray
 }
 Write-Host '   - 本程序的画布是 localhost:3010，桌面「无限画布」快捷方式打开的就是它，会自动接好 Agent' -ForegroundColor Gray
+if ($museLauncherRenamed) {
+    Write-Host '   - MuseCanvas 的桌面启动器已改名为「MuseCanvas 启动器（会打开别人的画布）」，别拿它开界面' -ForegroundColor Gray
+}
 Write-Host '   - 两边只共用后台的池/协议，画布数据互不相通：在 3000 里看不到你在 3010 做的图' -ForegroundColor Gray
 
 if (-not $museInstall) {
