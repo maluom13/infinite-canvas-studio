@@ -4,10 +4,19 @@ import { dirname, join } from "node:path";
 import { pipeline } from "node:stream";
 import type { Plugin } from "vite";
 
-import { CANVAS_CONFIG_PATH, MUSE_INSTALL_CONFIG } from "./runtime-paths";
+import { CANVAS_CONFIG_PATH, MUSE_INSTALL_CONFIG, PROJECT_ROOT } from "./runtime-paths";
 
 type Installation = { poolKey: string; ports: { pool: number; protocol: number } };
 type BridgeOptions = { readInstallation?: () => Promise<Installation> };
+
+/**
+ * 桥接的行为版本。改了错误提示、路径解析这类「看不见」的逻辑就加一。
+ * 用途：对方报错时先看 /muse/version —— 版本低或 404 就说明他跑的是旧代码，
+ * 再多的排查都是白费。曾经就因为旧代码里写着「请重新运行 D 盘启动入口」，
+ * 对方的机器上根本没有 D 盘。
+ */
+const BRIDGE_VERSION = 3;
+const STARTED_AT = new Date().toISOString();
 
 const exists = async (file: string) => {
     try { await stat(file); return true; } catch { return false; }
@@ -80,6 +89,30 @@ export function createMuseBridge(options: BridgeOptions = {}) {
             return json(403, { error: "Muse 仅允许当前本机画布访问。" });
         }
         try {
+            // 版本探针放在读配置之前：配置读不到时，它也必须能回答「你跑的是哪一版」。
+            if (url.pathname === "/muse/version" && req.method === "GET") {
+                const readVersion = async () => {
+                    for (const dir of [PROJECT_ROOT, process.cwd()]) {
+                        try { return (await readFile(join(dir, "VERSION"), "utf8")).trim(); } catch { /* 换下一个 */ }
+                    }
+                    return "";
+                };
+                let install: Record<string, unknown>;
+                try {
+                    install = { ok: true, path: await resolveInstallPath() };
+                } catch (error) {
+                    install = { ok: false, error: error instanceof Error ? error.message : "读不到 install.json" };
+                }
+                return json(200, {
+                    bridge: BRIDGE_VERSION,
+                    startedAt: STARTED_AT,
+                    version: await readVersion(),
+                    projectRoot: PROJECT_ROOT,
+                    workingDirectory: process.cwd(),
+                    install,
+                    hint: "bridge 低于 3 或这里 404，说明这台机器跑的是旧代码：先更新再排查。",
+                });
+            }
             const config = await (options.readInstallation || readInstallation)();
             if (!config.poolKey || !Number.isInteger(config.ports.pool) || !Number.isInteger(config.ports.protocol)) throw new Error("Muse 本机安装配置不完整。");
             const headers = { Authorization: `Bearer ${config.poolKey}` };
@@ -136,6 +169,7 @@ export function createMuseBridge(options: BridgeOptions = {}) {
                 const ok = Boolean(accounts && models && ready > 0);
                 return json(200, {
                     ok,
+                    bridge: BRIDGE_VERSION,
                     steps,
                     summary: ok
                         ? "链路正常：配置、账号池、生成协议都通，且至少有一个可用账号。"
