@@ -1,0 +1,16 @@
+{
+    "_说明": "复制本文件为 canvas.config.json 后按需修改。全部字段都可省略，省略时脚本会自动探测。",
+    "_stateDir": "数据目录。留空则：存在 D:/CodexData/.codex/infinite-canvas 就沿用它，否则用 %LOCALAPPDATA%/InfiniteCanvas",
+    "stateDir": "",
+    "_nodePath": "node.exe 位置。留空则从 PATH 和常见安装位置查找",
+    "nodePath": "",
+    "_chromePath": "浏览器位置。留空则依次查找 Chrome、Edge",
+    "chromePath": "",
+    "_canvasProfile": "画布专用浏览器配置目录。留空则沿用 D:/CodexOutputs/MuseCanvasData/browser-profiles/canvas，不存在则在数据目录下新建。换掉这个目录会看起来像“画布全没了”",
+    "canvasProfile": "",
+    "_museLauncher": "MuseCanvas 启动脚本。留空则自动查找",
+    "museLauncher": "",
+    "_ports": "端口被占用时改这里",
+    "agentPort": 17381,
+    "webPort": 3010
+}
