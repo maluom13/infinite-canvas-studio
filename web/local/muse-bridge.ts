@@ -46,7 +46,7 @@ export async function resolveInstallPath(): Promise<string> {
     for (const candidate of candidates) {
         if (await exists(candidate)) return candidate;
     }
-    throw new Error("找不到 MuseCanvas 的 install.json。请确认 MuseCanvas 已安装并已启动；如果装在别的位置，在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\\install.json。");
+    throw new Error("本机没有找到 MuseCanvas。Muse 的登录窗口由 MuseCanvas 提供，没有它就无法登录 Muse —— 请先安装 MuseCanvas，或改用豆包通道出图。若已安装但不在常见位置，在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\\install.json。");
 }
 
 const readInstallation = async (): Promise<Installation> => JSON.parse(await readFile(await resolveInstallPath(), "utf8"));
@@ -112,6 +112,25 @@ export function createMuseBridge(options: BridgeOptions = {}) {
                     install,
                     hint: "bridge 低于 3 或这里 404，说明这台机器跑的是旧代码：先更新再排查。",
                 });
+            }
+            // 「本机根本没装 MuseCanvas」是最常见的「点登录没反应」。这一层要在读配置之前拦，
+            // 否则会直接抛错，自检页反而看不到结论。
+            if (url.pathname === "/muse/diagnose" && req.method === "GET") {
+                try {
+                    await resolveInstallPath();
+                } catch (error) {
+                    return json(200, {
+                        ok: false,
+                        bridge: BRIDGE_VERSION,
+                        steps: [{ name: "MuseCanvas 配置", ok: false, detail: error instanceof Error ? error.message : "读不到 install.json", fix: "先安装 MuseCanvas（第三方软件，Muse 的登录窗口由它提供），或改用豆包通道出图。" }],
+                        summary: "本机没有 MuseCanvas，所以没有可用的 Muse 登录窗口。这不是画布的故障。",
+                        notes: [
+                            "Muse 登录不是画布自己做的：画布只是把登录请求转给本机的 MuseCanvas。",
+                            "没有安装 MuseCanvas，或者装了但没启动，都会表现成「点登录没反应 / 无法获取」。",
+                            "暂时不想装 MuseCanvas，就先用豆包通道出图（安装脚本已准备好，登录后即可用）。",
+                        ],
+                    });
+                }
             }
             const config = await (options.readInstallation || readInstallation)();
             if (!config.poolKey || !Number.isInteger(config.ports.pool) || !Number.isInteger(config.ports.protocol)) throw new Error("Muse 本机安装配置不完整。");

@@ -237,10 +237,12 @@ http://127.0.0.1:3010/muse/diagnose
 
 | 断在这一层 | 说明 | 怎么处理 |
 |---|---|---|
-| MuseCanvas 配置 | 找不到 `install.json` | 在 `canvas.config.json` 里把 `museInstall` 指向 `MuseCanvasData\install.json` |
+| MuseCanvas 配置 | **本机没装 MuseCanvas**（最常见），或装在非常见位置 | Muse 的登录窗口由 MuseCanvas 提供，没装就没有窗口可弹。先装它，或改用豆包通道；装在别处就填 `museInstall` |
 | 账号池 | 连不上 → 服务没启动；HTTP 401/403 → 密钥不匹配 | 用同一套 MuseCanvas 启动；别混用两个安装目录的 `install.json` |
 | 生成协议 | 账号池通了、协议没响应 | 在 MuseCanvas 页面确认六个服务都正常，必要时停止再启动 |
 | 已有 Muse 账号 | 服务正常但账号数为 0，或全部不可用 | 点画布顶部 Muse → 添加账号，用**你自己的**账号登录 |
+
+**为什么「点登录没反应 / 无法获取」几乎都是这一条**：画布自己不会登录 Muse，它只是把请求转给本机的 MuseCanvas，由 MuseCanvas 弹出登录窗口。本机没有 MuseCanvas，就等于没有登录入口——不是按钮坏了。
 
 **两个软件解决不了的前提**，占「登录不了」的大多数：
 
