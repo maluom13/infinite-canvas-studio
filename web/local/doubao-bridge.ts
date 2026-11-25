@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
+import { createReadStream, existsSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,17 @@ const defaultHome = process.env.DOUBAO_HOME || dataPath("doubao");
 const loginScript = fileURLToPath(new URL("./doubao-login.py", import.meta.url));
 const generateScript = fileURLToPath(new URL("./doubao-generate.py", import.meta.url));
 const pythonPath = process.env.DOUBAO_PYTHON || dataPath("publisher", "venv", "Scripts", "python.exe");
-const chromePath = process.env.DOUBAO_CHROME || "C:/Program Files/Google/Chrome/Application/chrome.exe";
+/** 别人的机器上可能只有 Edge：按 配置 → Chrome → Edge 找第一个真实存在的，别写死 Chrome 路径。 */
+const chromePath = (() => {
+    const configured = process.env.DOUBAO_CHROME || process.env.CANVAS_CHROME;
+    if (configured) return configured;
+    const roots = [process.env.ProgramFiles, process.env["ProgramFiles(x86)"], process.env.LOCALAPPDATA].filter((root): root is string => Boolean(root));
+    const candidates = roots.flatMap((root) => [
+        path.join(root, "Google", "Chrome", "Application", "chrome.exe"),
+        path.join(root, "Microsoft", "Edge", "Application", "msedge.exe"),
+    ]);
+    return candidates.find((candidate) => existsSync(candidate)) ?? "chrome";
+})();
 const cdpPort = Number(process.env.DOUBAO_CDP_PORT || 19402);
 const chatUrl = "https://www.doubao.com/chat/";
 const waitingTtlMs = 20 * 60 * 1000;

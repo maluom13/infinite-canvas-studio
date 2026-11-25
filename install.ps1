@@ -3,7 +3,8 @@
     [string]$DataDirectory = '',
     [switch]$SkipDeps,
     [switch]$NoShortcut,
-    [switch]$NoStart
+    [switch]$NoStart,
+    [switch]$InstallPython
 )
 
 $ErrorActionPreference = 'Stop'
@@ -230,7 +231,134 @@ if ($DataDirectory) {
 }
 
 # ---------------------------------------------------------------------------
-# 7. 快捷方式
+# 7. 豆包通道（可选兜底：没有 MuseCanvas 也能出图/出视频）
+# ---------------------------------------------------------------------------
+Write-Step '准备豆包通道（没有 MuseCanvas 时靠它兜底）'
+
+# 数据目录的规则要和 Start 脚本一致，否则这里装好了运行时也找不到
+$effectiveData = $DataDirectory
+if (-not $effectiveData) {
+    try {
+        $cfgNow = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($cfgNow.stateDir) { $effectiveData = $cfgNow.stateDir }
+    } catch { }
+}
+if (-not $effectiveData) {
+    $legacyData = 'D:\CodexData\.codex\infinite-canvas'
+    if (Test-Path -LiteralPath $legacyData) { $effectiveData = $legacyData }
+    else { $effectiveData = Join-Path $env:LOCALAPPDATA 'InfiniteCanvas' }
+}
+
+function Invoke-Quiet {
+    param([string]$Exe, [string[]]$Arguments)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Exe @Arguments *> $null; return $LASTEXITCODE } catch { return 1 } finally { $ErrorActionPreference = $prev }
+}
+
+$doubaoVenv = Join-Path $effectiveData 'publisher\venv'
+$doubaoPython = Join-Path $doubaoVenv 'Scripts\python.exe'
+$doubaoReady = $false
+
+if ((Test-Path -LiteralPath $doubaoPython) -and ((Invoke-Quiet $doubaoPython @('-c', 'import playwright')) -eq 0)) {
+    $doubaoReady = $true
+    Add-Result 'pass' '豆包通道' "已就绪（$doubaoPython）"
+} elseif ($SkipDeps) {
+    Add-Result 'warn' '豆包通道' '已按参数跳过依赖安装。没有 MuseCanvas 时无法用它兜底，去掉 -SkipDeps 重跑一次即可'
+} else {
+    # 找一个真实的 Python 3 作为虚拟环境的基础解释器（跳过应用商店的占位 exe）
+    $basePython = $null
+    $pyCommand = Get-Command py.exe -ErrorAction SilentlyContinue
+    if ($pyCommand) {
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            # 不能用 py -3：它只看「默认版本」，而默认版本的注册路径可能已经失效
+            # （常见于装过又卸载的 WPS / AI 工具，留下一个指向不存在目录的 Python）。
+            # py -0p 会列出所有已注册版本的真实路径，逐个验证是否存在，取最新的可用的。
+            $listed = & $pyCommand.Source -0p 2>$null
+            if ($LASTEXITCODE -eq 0 -and $listed) {
+                $paths = foreach ($line in $listed) {
+                    $match = [regex]::Match("$line", '([A-Za-z]:\\[^\r\n]*?python\.exe)')
+                    if ($match.Success) { $match.Groups[1].Value.Trim() }
+                }
+                $basePython = $paths | Where-Object { (Test-Path -LiteralPath $_) -and ($_ -notlike '*WindowsApps*') } | Select-Object -First 1
+            }
+            if (-not $basePython) {
+                $candidate = (& $pyCommand.Source -3 -c 'import sys;print(sys.executable)' 2>$null | Select-Object -First 1)
+                if ($LASTEXITCODE -eq 0 -and $candidate -and "$candidate".Trim() -notlike '*WindowsApps*') { $basePython = "$candidate".Trim() }
+            }
+        } catch { } finally { $ErrorActionPreference = $prev }
+    }
+    if (-not $basePython) {
+        $basePython = @(
+            (Get-Command python.exe -ErrorAction SilentlyContinue).Source,
+            (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python313\python.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'),
+            (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python311\python.exe'),
+            (Join-Path $env:ProgramFiles 'Python313\python.exe'),
+            (Join-Path $env:ProgramFiles 'Python312\python.exe')
+        ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) -and ($_ -notlike '*WindowsApps*') } | Select-Object -First 1
+    }
+
+    if (-not $basePython -and $InstallPython) {
+        $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+        if ($winget) {
+            Write-Host '    正在通过 winget 安装 Python 3.12 ...' -ForegroundColor DarkGray
+            [void](Invoke-Quiet $winget.Source @('install', '-e', '--id', 'Python.Python.3.12', '--silent', '--accept-package-agreements', '--accept-source-agreements'))
+            $basePython = @(
+                (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'),
+                (Join-Path $env:ProgramFiles 'Python312\python.exe')
+            ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+            if (-not $basePython) { Add-Result 'warn' 'Python' 'winget 装完仍找不到 python.exe，重开一个终端再运行本脚本通常就好了' }
+        } else {
+            Add-Result 'warn' 'Python' '本机没有 winget，无法自动装。请从 https://www.python.org/downloads/ 装 3.10 以上（勾选 Add python.exe to PATH）'
+        }
+    }
+
+    if (-not $basePython) {
+        $stub = $false
+        $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+        if ($pythonCommand -and $pythonCommand.Source -like '*WindowsApps*') { $stub = $true }
+        $reason = if ($stub) { '检测到的 python.exe 是应用商店占位程序，不是真正的 Python。' } else { '本机没有可用的 Python 3。' }
+        Add-Result 'warn' '豆包通道' ($reason + '没有 MuseCanvas 时需要它才能兜底出图：装好 Python 3.10+ 后重跑本脚本，或直接加 -InstallPython 让它自动装')
+    } else {
+        if (-not (Test-Path -LiteralPath $doubaoPython)) {
+            Write-Host "    正在创建 Python 虚拟环境（$doubaoVenv）..." -ForegroundColor DarkGray
+            [void](Invoke-Quiet $basePython @('-m', 'venv', $doubaoVenv))
+        }
+        if (-not (Test-Path -LiteralPath $doubaoPython)) {
+            Add-Result 'warn' '豆包通道' "虚拟环境创建失败：$doubaoVenv（基础 Python：$basePython）"
+        } else {
+            Write-Host '    正在安装 playwright（只装 Python 包，不下载浏览器）...' -ForegroundColor DarkGray
+            $pipCode = Invoke-Quiet $doubaoPython @('-m', 'pip', 'install', '--disable-pip-version-check', '--quiet', 'playwright')
+            if ($pipCode -ne 0) {
+                # 直连 PyPI 慢或不通时换国内镜像，只影响安装，不改任何系统设置
+                [void](Invoke-Quiet $doubaoPython @('-m', 'pip', 'install', '--disable-pip-version-check', '--quiet', 'playwright', '-i', 'https://pypi.tuna.tsinghua.edu.cn/simple'))
+            }
+            if ((Invoke-Quiet $doubaoPython @('-c', 'import playwright')) -eq 0) {
+                $doubaoReady = $true
+                Add-Result 'pass' '豆包通道' "已准备好（$doubaoPython）。它驱动系统已装的 Chrome/Edge，不额外下载浏览器"
+            } else {
+                Add-Result 'warn' '豆包通道' 'playwright 安装失败（多半是网络）。没有 MuseCanvas 时无法兜底出图，可稍后重跑本脚本'
+            }
+        }
+    }
+}
+
+# 路径写进配置：以后换 Python 或换机器，以这里为准
+if ($doubaoReady) {
+    try {
+        $cfgObj = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($cfgObj.doubaoPython -ne $doubaoPython) {
+            $cfgObj | Add-Member -NotePropertyName doubaoPython -NotePropertyValue $doubaoPython -Force
+            [System.IO.File]::WriteAllText($configPath, ($cfgObj | ConvertTo-Json), (New-Object System.Text.UTF8Encoding($false)))
+        }
+    } catch { }
+}
+
+# ---------------------------------------------------------------------------
+# 8. 快捷方式
 # ---------------------------------------------------------------------------
 if (-not $NoShortcut) {
     Write-Step '创建桌面快捷方式'
@@ -261,7 +389,7 @@ if (-not $NoShortcut) {
 }
 
 # ---------------------------------------------------------------------------
-# 8. 启动
+# 9. 启动
 # ---------------------------------------------------------------------------
 if (-not $NoStart) {
     Write-Step '启动'
@@ -289,21 +417,29 @@ foreach ($group in @(@('pass', '通过'), @('fail', '未通过'), @('warn', '需
 
 Write-Host ''
 Write-Host '  未测试（这类操作会花额度或影响账号，需要你本人确认后使用）' -ForegroundColor Gray
-Write-Host '   - 真实出图 / 出视频：需要 MuseCanvas 已装且登录自己的 Muse 账号' -ForegroundColor Gray
+Write-Host '   - 真实出图 / 出视频：MuseCanvas 已装并登录自己的 Muse 账号，或豆包通道登录后使用' -ForegroundColor Gray
 Write-Host '   - 真实发布：需要在「自动发布」页面逐个平台扫码登录' -ForegroundColor Gray
 Write-Host '   - Agent 对话：需要登录 Codex 或 Claude 的账号' -ForegroundColor Gray
 
 if (-not $museInstall) {
     Write-Host ''
     Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
-    Write-Host '还没装 MuseCanvas，现在出不了图' -ForegroundColor Yellow
-    Write-Host '它是第三方软件，本脚本不代为下载安装（涉及对方的授权和你自己的账号）。' -ForegroundColor Gray
-    Write-Host '两种做法，装好后重启画布即可，不需要重装本程序：' -ForegroundColor Gray
-    Write-Host '  1) 把 INSTALLATION.md 顶部那段指令整块发给 AI，让它按官方文档装' -ForegroundColor Gray
-    Write-Host '  2) 自己打开 https://github.com/fangrui202575/muse-canvas-deploy 按说明装' -ForegroundColor Gray
+    if ($doubaoReady) {
+        Write-Host '本机没有 MuseCanvas：先用豆包通道出图' -ForegroundColor Yellow
+        Write-Host '在画布顶部把生成通道切到豆包，登录后即可用（无需再装别的）。' -ForegroundColor Gray
+        Write-Host '豆包的限制要知道：图片带水印、视频固定 10 秒 720p、不支持参考图，人机验证需你本人点。' -ForegroundColor Gray
+        Write-Host '要做需要参考图的一致性角色图/分镜，还是得装 MuseCanvas。' -ForegroundColor Gray
+    } else {
+        Write-Host '还没装 MuseCanvas，也没有可用的豆包通道，现在出不了图' -ForegroundColor Yellow
+        Write-Host '两条路选一条：' -ForegroundColor Gray
+        Write-Host '  1) 装 Python 3.10+ 后重跑本脚本，用豆包通道兜底（带水印、不支持参考图）' -ForegroundColor Gray
+        Write-Host '  2) 装 MuseCanvas，画质最好、支持参考图（第三方软件，本脚本不代装）' -ForegroundColor Gray
+    }
     Write-Host ''
-    Write-Host '装的时候注意：默认路径在 C 盘，要显式指定 -Destination 和 -DataDirectory 到非系统盘。' -ForegroundColor Gray
-    Write-Host '画布本身可以先用：打开后能新建节点、编辑、整理，只是点生成会提示没有可用模型。' -ForegroundColor Gray
+    Write-Host 'MuseCanvas 是第三方软件，本脚本不代为下载安装（涉及对方的授权和你自己的账号）。' -ForegroundColor Gray
+    Write-Host '把 INSTALLATION.md 顶部那段指令整块发给 AI，它会按官方文档装；也可以自己打开' -ForegroundColor Gray
+    Write-Host 'https://github.com/fangrui202575/muse-canvas-deploy 按说明装。装好后重启画布即可，不用重装本程序。' -ForegroundColor Gray
+    Write-Host '注意：它的默认路径在 C 盘，要显式指定 -Destination 和 -DataDirectory 到非系统盘。' -ForegroundColor Gray
 }
 
 Write-Host ''

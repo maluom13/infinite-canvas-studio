@@ -12,6 +12,8 @@
     "museLauncher": "",
     "_museInstall": "MuseCanvas 的 install.json 位置（MuseCanvasData\\install.json）。装在其他盘时填这里，否则自动探测",
     "museInstall": "",
+    "_doubaoPython": "豆包通道用的 Python。留空则用 <数据目录>/publisher/venv/Scripts/python.exe（install.ps1 会自动建好），没有 MuseCanvas 时靠它兜底出图",
+    "doubaoPython": "",
     "_ports": "端口被占用时改这里",
     "agentPort": 17381,
     "webPort": 3010
