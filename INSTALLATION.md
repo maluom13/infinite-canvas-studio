@@ -1,44 +1,149 @@
-# 本机安装与使用
+# 安装与使用
 
-- 项目：D:\CodexOutputs\infinite-canvas
-- 版本：网页 v0.20.0，Canvas Agent 0.6.0。
-- 下载来源：https://github.com/basketikun/infinite-canvas 的 main 源码压缩包。Git 下载受本机代理重写影响，使用 GitHub codeload 完成安装；此目录不是 Git checkout。
-- 启动：双击 D:\CodexOutputs\InfiniteCanvas-Start.lnk。
-- 停止本次服务：双击 D:\CodexOutputs\InfiniteCanvas-Stop.lnk。
-- 网页：http://127.0.0.1:3010
-- Agent：http://127.0.0.1:17381
-- 状态、浏览器画布数据和日志：D:\CodexData\.codex\infinite-canvas
-- Bun 与 npm 缓存：D:\CodexData\.codex\cache
+## 复制给 AI 的安装指令
 
-启动快捷方式会后台启动服务，并打开使用独立 D 盘浏览器配置的 Chrome，自动连接 Agent。请使用此入口保持同一份画布数据。未设置开机自启。
+把下面这段整块复制，发给任意能执行命令的 AI（Claude Code、Codex、WorkBuddy 等）：
 
-普通网页链接现在也会自动取得本安装的 Codex 连接信息并连接 17381；无需手填 Token。已经打开的页面刷新即可生效。已在全新浏览器和刷新场景验证连接及会话 ready。使用其他浏览器会有独立的画布本地数据，日常仍建议使用 D 盘启动入口。
+```text
+请把我这台 Windows 电脑装好 https://github.com/maluom13/infinite-canvas-studio 这个项目。
 
-Codex 插件 infinite-canvas@infinite-canvas-local 已安装并启用；MCP 使用本地编译版本，并与启动器共用 D 盘状态目录。在 Codex 新建聊天后输入：“打开 D 盘本地 Infinite Canvas，读取当前画布。”当前已打开的聊天可能需要重新加载才能取得新插件工具。
+先做三件事再动手：读仓库里的 INSTALLATION.md、确认要装到哪个磁盘目录、确认当前登录的 Windows 用户名。
+未经我同意不要默认占用 C 盘、不要删除任何已有数据、不要停止与我无关的程序、不要发起消耗额度的模型或生成测试。
 
-Muse 图片、视频接口已接入。刷新当前画布，顶部点击 Muse 即可查看账号、登录 Muse 或重新登录。已有有效账号会在首次接入时自动配置图片和视频模型，无需填写 API 地址或 Key。登录窗口由本机 Muse 服务打开，密码与验证码由用户本人输入，登录完成后自动载入模型。
+按 INSTALLATION.md 的步骤执行：检查 Node.js、安装依赖、构建 canvas-agent、启动服务。
+MuseCanvas 是第三方软件，如果本机没有，请停下来告诉我怎么装，不要替我下载或安装别人的软件。
+Muse、豆包、视频号、快手、抖音的账号登录必须由我本人完成，不要代我操作，也不要读取或保存我的密码、Cookie。
 
-此接入复用 D:\CodexOutputs\MuseCanvas 中的 Muse 账号服务及 D:\CodexOutputs\MuseCanvasData 中的账号数据，仍受该服务的账号状态和软件授权约束。账号登录状态是共享的，作品数据仍在新版画布的独立浏览器配置中。启动入口会检查 Muse 服务，未运行时调用现有启动器的 NoBrowser 模式。停止新版画布不会停止共享 Muse 服务。
+装完后逐项报告：通过什么、没通过什么、没测试什么。不要因为页面能打开就说全部成功；
+真实出图、真实发布属于要花额度或对账号有影响的操作，必须等我确认后再做。
+```
 
-新画布的本地转发层在服务端读取现有安装密钥，浏览器只保存占位值 local-session，不保存或展示该密钥。服务端限制同源请求并仅转发登录、模型、生成与媒体接口。当前配置使用 Vite 本地服务（也支持 Vite preview），单独发布静态 dist 不包含这一服务能力。
+---
 
-验证：6 项本地接口测试通过（27 条断言）；独立浏览器验证实际账号和模型、模拟登录成功/失败、刷新后持久化、模拟文生图/参考图编辑/视频任务与媒体返回通过；没有页面 JavaScript 异常。实际用户画布的 MCP 已读到 Muse 图片和视频模型。没有发起真实图片或视频生成，没有消耗生成额度；真实 Muse 登录仍需用户本人操作。
+## 这是什么
 
-## 验证结果
+基于 [infinite-canvas](https://github.com/basketikun/infinite-canvas)（MIT）修改的本地工作台：在画布上做图、做视频、合成成片，再自动发布到视频号 / 快手 / 抖音。
 
-- 网页 HTTP 200，浏览器页面无 JavaScript 异常。
-- 网页显示 Codex 已连接；Agent health 显示 hasCanvas=true、会话 ready。
-- Codex 模型列表读取成功。
-- MCP 完成握手，列出 34 个工具，canvas_get_state 成功读到当前画布。
-- 原 MuseCanvas 的 3000/17371 端口服务继续运行。
-- 检查了项目 TODO；本次为本机安装，没有完成或删除原项目待办。
+**生成能力来自 MuseCanvas**（第三方软件，不在本仓库内）。本仓库只包含画布、Agent 和发布链路。没有 MuseCanvas 时，画布能打开、能编辑，但出不了图。
 
-## 插件检查记录
+## 前置条件
 
-来源：用户指定的 basketikun/infinite-canvas 仓库。
-版本：插件 0.1.0。
-检查范围：7 个文本配置/说明文件，以及图标资源路径；阅读两份 SKILL.md、MCP 命令、插件和 marketplace 清单。
-权限：在本机启动 Canvas Agent，通过 localhost 读取和操作画布；使用已有 Codex 登录；安装时从 GitHub/npm 获取源码与依赖。
-结论：中等权限范围，符合本次本地安装和 Codex 接入请求；未在插件说明中发现无关数据上传指令。
-本地适配：MCP 改用已安装的 Node 与本地 Agent；open-canvas 技能优先使用 D 盘启动器；Agent 新增 CANVAS_AGENT_HOME 环境变量以隔离状态目录。
-此记录是安装配置检查，不代表对全部第三方依赖的安全审计。
+| 项目 | 要求 |
+|---|---|
+| 系统 | Windows 10/11 x64 |
+| 磁盘 | 程序 + 数据 ≥ 5 GB，另需素材空间 |
+| Node.js | ≥ 18（`node -v` 能输出版本号） |
+| 浏览器 | Chrome 或 Edge |
+| MuseCanvas | 出图 / 出视频需要。第三方软件，请自行从官方渠道安装并登录 |
+| Python | 仅「自动发布」「豆包」「深度视频」需要；缺少时相关功能会报错，其余功能不受影响 |
+
+## 安装
+
+### 第一步：选目录
+
+**不要装在 C 盘**，素材和模型会很快占满系统盘。示例用 `D:\InfiniteCanvas`，实际按可用磁盘替换。
+
+```powershell
+$root = 'D:\InfiniteCanvas'
+New-Item -ItemType Directory -Force $root | Out-Null
+Set-Location $root
+```
+
+### 第二步：获取代码
+
+```powershell
+git clone https://github.com/maluom13/infinite-canvas-studio.git .
+```
+
+没有 git 时，也可以在仓库页面点 `Code → Download ZIP`，解压到上一步的目录。
+
+### 第三步：安装依赖
+
+两处都要装，前端和 Agent 是独立的。
+
+```powershell
+Set-Location web
+npm install
+Set-Location ..
+
+Set-Location canvas-agent
+npm install
+npm run build
+Set-Location ..
+```
+
+`canvas-agent` 必须执行 `npm run build`，否则 `dist` 不存在，启动脚本会报错。
+
+### 第四步（可选）：自定义路径与端口
+
+默认全部自动探测，不配也能跑。需要改端口或程序位置时：
+
+```powershell
+Copy-Item canvas.config.example.json canvas.config.json
+notepad canvas.config.json
+```
+
+可配置项：数据目录、Node 路径、浏览器路径、画布浏览器配置目录、MuseCanvas 启动脚本、前端与 Agent 端口。
+
+### 第五步：启动
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Start-InfiniteCanvas.ps1
+```
+
+成功后浏览器会打开画布，终端输出 `Infinite Canvas is running: http://127.0.0.1:3010`。
+
+停止：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
+```
+
+## 数据放在哪里
+
+启动脚本按以下顺序决定：
+
+1. `canvas.config.json` 里的 `stateDir`
+2. 环境变量 `CANVAS_DATA_ROOT`
+3. 如果 `D:\CodexData\.codex\infinite-canvas` 已存在（老机器），沿用它
+4. 否则用 `%LOCALAPPDATA%\InfiniteCanvas`
+
+该目录保存：账号登录态、任务记录、发布历史与日志、浏览器配置。**不要公开分享这个目录的内容。**
+
+## 端口
+
+| 用途 | 默认端口 |
+|---|---|
+| 画布前端 | 3010 |
+| 画布 Agent | 17381 |
+| MuseCanvas Web / Agent / 导出 / 授权 | 3000 / 17371 / 17372 / 17373 |
+| MuseCanvas 池 / 协议 | 18610 / 18611 |
+
+画布与 MuseCanvas 端口不冲突，可同时运行。端口被占用时改 `canvas.config.json`。
+
+## 账号登录（必须本人操作）
+
+| 账号 | 在哪登录 | 说明 |
+|---|---|---|
+| Muse | 画布顶部 Muse 面板 | 用自己账号；生成走这个 |
+| 豆包 | 画布顶部豆包面板 | 独立浏览器与登录态，与 Muse 无关；人机验证需本人完成 |
+| 视频号 / 快手 / 抖音 | 「自动发布」页面 | 各平台扫码一次，之后复用登录态 |
+| Codex / Claude | Agent 设置页 | 用于 Agent 对话，不登录则只能用画布手工操作 |
+
+**任何账号都不应该由他人代登录**，也不要把 Cookie、令牌、密码写进配置或提交到仓库。
+
+## 已知限制
+
+- **出图速度约 60 秒一张，且同一账号串行**。多登几个 Muse 账号可并行，速度接近线性提升。
+- **发布使用浏览器自动化**，平台服务条款可能不允许，账号存在被限制的风险，建议用单独注册的账号。
+- **豆包**：图片带水印，视频固定 10 秒 720p，不支持参考图；其用户协议不允许将生成内容用于商业用途。
+- **Agent 对话**需要 Codex 或 Claude 的账号/额度，未登录时画布的手工操作不受影响。
+- 视频号 / 快手的发布链路尚未在真实账号上完整验证，首次使用建议先拿一个不重要的作品试。
+
+## 卸载
+
+1. 运行 `Stop-InfiniteCanvas.ps1` 停止服务
+2. 删除程序目录（如 `D:\InfiniteCanvas`）
+3. 数据目录按需保留或删除（见上方「数据放在哪里」）
+
+MuseCanvas 是独立安装的软件，需要单独卸载。
