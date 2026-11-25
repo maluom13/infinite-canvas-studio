@@ -7,7 +7,12 @@
 > **本仓库说明**
 >
 > 本项目基于 [basketikun/infinite-canvas](https://github.com/basketikun/infinite-canvas)（MIT 许可）修改而来，
-> 原项目版权归原作者所有，许可全文见 [LICENSE](LICENSE)。
+> 原项目版权归原作者所有，许可全文见 [LICENSE](LICENSE)（与上游逐字一致）。
+>
+> **基线版本**：上游 `v0.20.0` 时期的单体结构快照（顶层是 `web/` + `canvas-agent/`）。
+> 上游其后已重构为 pnpm monorepo（`apps/` + `packages/` + `plugins/`），本仓库**不跟随该重构**，
+> 是独立演进的一条分叉线。所以不要试图把上游新版本直接合并进来，那是重写而不是升级；
+> 需要上游的某个具体修复时，单独拣选对应改动。
 >
 > 在原版基础上增加的部分主要围绕「内容生产 → 自动发布」这条链路：
 >
