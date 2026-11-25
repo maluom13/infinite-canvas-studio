@@ -20,6 +20,8 @@
    -Destination 'D:\MuseCanvas' -DataDirectory 'D:\MuseCanvasData' -ForUser '当前用户名'
    它的默认路径在 C 盘，这两个参数不能省。
 4. 装完启动一次，确认画布、Agent、导出、授权、老接口、新接口六个服务都起来。
+5. 注意：MuseCanvas 自带一个画布界面（localhost:3000），那是它自己的界面，不是你装的主程序。
+   装完后不要用它的桌面快捷方式打开界面；要打开只用主程序创建的「无限画布」快捷方式（localhost:3010）。
 
 【第二段：主程序】
 1. 把 https://github.com/maluom13/infinite-canvas-studio 的代码取到同一块磁盘（git clone 或下载 ZIP）。
@@ -144,6 +146,22 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 ```
 
 启动成功后浏览器会打开画布，终端输出 `Infinite Canvas is running: http://127.0.0.1:3010`。
+
+## 两个画布别搞混（重要）
+
+装了 MuseCanvas 之后，机器上会同时存在**两个长得像、其实不同的画布**：
+
+| 地址 | 是谁的 | 说明 |
+|---|---|---|
+| `localhost:3000` | **MuseCanvas 自带的** | 第三方作者自己改的那份画布。点 MuseCanvas 的桌面快捷方式就会打开它 |
+| `localhost:3010` | **本程序的** | 桌面「无限画布」快捷方式打开它，会自动带上 Agent 参数、直接可用 |
+
+所以：
+
+- **只从「无限画布」快捷方式进**。它会顺带把 MuseCanvas 的后台服务（池 `18610` / 协议 `18611`）拉起来，不需要单独点 MuseCanvas。
+- **MuseCanvas 只当后台服务用**。它的桌面快捷方式建议改名成「MuseCanvas 服务（仅后台）」，避免点错。
+- **两边画布数据互不相通**：它们连的是各自的 Agent（3010 → `17381`，3000 → `17371`），存储也按地址隔离。在 3000 里做的图，在 3010 里看不到，反之也一样。
+- 误开了 3000 不影响任何东西，关掉那个标签页即可。
 
 ## 数据放在哪里
 

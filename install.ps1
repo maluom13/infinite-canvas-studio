@@ -421,6 +421,14 @@ Write-Host '   - 真实出图 / 出视频：MuseCanvas 已装并登录自己的 
 Write-Host '   - 真实发布：需要在「自动发布」页面逐个平台扫码登录' -ForegroundColor Gray
 Write-Host '   - Agent 对话：需要登录 Codex 或 Claude 的账号' -ForegroundColor Gray
 
+Write-Host ''
+Write-Host '  两个画布别搞混' -ForegroundColor Gray
+if ($museInstall) {
+    Write-Host '   - MuseCanvas 自带一个画布界面（localhost:3000），那是它自己的界面，不是本程序' -ForegroundColor Gray
+}
+Write-Host '   - 本程序的画布是 localhost:3010，桌面「无限画布」快捷方式打开的就是它，会自动接好 Agent' -ForegroundColor Gray
+Write-Host '   - 两边只共用后台的池/协议，画布数据互不相通：在 3000 里看不到你在 3010 做的图' -ForegroundColor Gray
+
 if (-not $museInstall) {
     Write-Host ''
     Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
