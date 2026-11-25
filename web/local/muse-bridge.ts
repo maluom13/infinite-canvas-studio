@@ -87,7 +87,7 @@ export function createMuseBridge(options: BridgeOptions = {}) {
             const protocol = `http://127.0.0.1:${config.ports.protocol}`;
             if (url.pathname === "/muse/status" && req.method === "GET") {
                 const [accountsResponse, modelsResponse, networkResponse] = await Promise.all([fetch(`${pool}/admin/accounts`, { headers }), fetch(`${protocol}/v1/models`, { headers }), fetch(`${pool}/admin/network`, { headers }).catch(() => null)]);
-                if (!accountsResponse.ok || !modelsResponse.ok) return json(503, { error: "Muse 服务未就绪：账号池或生成协议没有响应。请确认 MuseCanvas 已启动（Muse 面板可看状态）。" });
+                if (!accountsResponse.ok || !modelsResponse.ok) return json(503, { error: `Muse 服务未就绪：账号池或生成协议没有响应。请确认 MuseCanvas 已启动（Muse 面板可看状态）；打开 ${localOrigin}/muse/diagnose 可看是哪一层断了。` });
                 const accounts = await accountsResponse.json();
                 const models = await modelsResponse.json();
                 const network = networkResponse?.ok ? await networkResponse.json() : null;
@@ -102,6 +102,49 @@ export function createMuseBridge(options: BridgeOptions = {}) {
                     })),
                     models: (models.data || []).map((m: { id: string }) => ({ name: m.id, capability: /video/i.test(m.id) ? "video" : "image" })),
                     egress: network?.egress ? { ip: network.egress.ip, country: network.egress.country, checked_at: network.egress.checked_at } : null,
+                });
+            }
+            // 自检：把「登录不了 Muse」拆成可判断的几层，避免对方只能描述“登不上”。
+            // 浏览器打开 http://127.0.0.1:3010/muse/diagnose 就能看到结果。
+            if (url.pathname === "/muse/diagnose" && req.method === "GET") {
+                const steps: { name: string; ok: boolean; detail: string; fix?: string }[] = [];
+                const probe = async (name: string, base: string, path: string, fix: string) => {
+                    try {
+                        const response = await fetch(`${base}${path}`, { headers, signal: AbortSignal.timeout(5000) });
+                        if (response.status === 401 || response.status === 403) {
+                            steps.push({ name, ok: false, detail: `HTTP ${response.status}：密钥与正在运行的服务不匹配`, fix: "install.json 里的 poolKey 不是正在运行这套 MuseCanvas 的。请用它自己的启动入口启动，或重装到同一目录。" });
+                            return null;
+                        }
+                        if (!response.ok) {
+                            steps.push({ name, ok: false, detail: `HTTP ${response.status}`, fix });
+                            return null;
+                        }
+                        steps.push({ name, ok: true, detail: `HTTP ${response.status}` });
+                        return await response.json().catch(() => null);
+                    } catch (error) {
+                        steps.push({ name, ok: false, detail: error instanceof Error ? error.message : "连接失败", fix });
+                        return null;
+                    }
+                };
+                const installPath = await resolveInstallPath();
+                steps.push({ name: "MuseCanvas 配置", ok: true, detail: installPath });
+                const accounts = await probe("账号池", pool, "/admin/accounts", "MuseCanvas 没在运行。用 MuseCanvas 自己的入口启动一次（或本程序启动时自动带起），再点重试。");
+                const models = await probe("生成协议", protocol, "/v1/models", "账号池起来了但生成协议没响应。在 MuseCanvas 页面确认六个服务都正常，必要时 -Action Stop 再 Start。");
+                const list = Array.isArray(accounts?.accounts) ? accounts.accounts as Record<string, unknown>[] : [];
+                const ready = list.filter((account) => Boolean(account.enabled) && Boolean(account.essential_ok) && account.ok !== false && (!account.expires_at || Number(account.expires_at) * 1000 > Date.now())).length;
+                if (accounts) steps.push({ name: "已有 Muse 账号", ok: ready > 0, detail: `共 ${list.length} 个，可用 ${ready} 个`, fix: ready > 0 ? undefined : "服务是好的，缺的是账号：点画布顶部 Muse → 添加账号，用你本人的 Muse 账号登录。" });
+                const ok = Boolean(accounts && models && ready > 0);
+                return json(200, {
+                    ok,
+                    steps,
+                    summary: ok
+                        ? "链路正常：配置、账号池、生成协议都通，且至少有一个可用账号。"
+                        : "链路有问题，按 steps 里 ok=false 的那一项处理。",
+                    notes: [
+                        "Muse 账号必须由本人登录，本程序不代登录、也不保存密码。",
+                        "登录窗口不关、账号加不进来：多是 MuseCanvas 版本旧，0.23.3 修过这个问题，升级后再试。",
+                        "没有 Muse 账号或邀请码时无法登录，这是账号问题不是软件问题——邀请码在 MuseCanvas 页面公告里。",
+                    ],
                 });
             }
             const loginStart = url.pathname === "/muse/login" && req.method === "POST";

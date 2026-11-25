@@ -151,6 +151,59 @@ if ($museInstall) {
 }
 
 # ---------------------------------------------------------------------------
+# 4.1 Muse 登录链路：配置 → 账号池 → 生成协议
+# 「登录不了 Muse」多数不是画布的问题，而是这三层里的某一层没通，逐层报出来
+# ---------------------------------------------------------------------------
+function Get-LocalJson($Url, $Token) {
+    # 显式不走系统代理：这几个地址都是 127.0.0.1，走代理反而会失败
+    try {
+        $request = [System.Net.HttpWebRequest]::Create($Url)
+        $request.Proxy = $null
+        $request.Timeout = 5000
+        $request.Headers.Add('Authorization', "Bearer $Token")
+        $response = $request.GetResponse()
+        $reader = New-Object System.IO.StreamReader($response.GetResponseStream())
+        try { $body = $reader.ReadToEnd() } finally { $reader.Dispose(); $response.Close() }
+        return [pscustomobject]@{ Status = [int]$response.StatusCode; Body = $body }
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) { return [pscustomobject]@{ Status = [int]$_.Exception.Response.StatusCode; Body = '' } }
+        return $null
+    } catch { return $null }
+}
+
+if ($museInstall -and (Test-Path -LiteralPath $museInstall)) {
+    try {
+        $muse = Get-Content -LiteralPath $museInstall -Raw -Encoding UTF8 | ConvertFrom-Json
+        $poolPort = [int]$muse.ports.pool
+        $protocolPort = [int]$muse.ports.protocol
+        if ($muse.poolKey -and $poolPort -and $protocolPort) {
+            $accountsResult = Get-LocalJson "http://127.0.0.1:$poolPort/admin/accounts" $muse.poolKey
+            if (-not $accountsResult) {
+                Add-Result 'untested' 'Muse 登录链路' '账号池没在运行（MuseCanvas 尚未启动）。启动后打开 http://127.0.0.1:3010/muse/diagnose 可自检'
+            } elseif ($accountsResult.Status -ge 400) {
+                Add-Result 'warn' 'Muse 登录链路' "账号池返回 HTTP $($accountsResult.Status)：install.json 的密钥与正在运行的服务不匹配，请用同一套 MuseCanvas 启动"
+            } else {
+                Add-Result 'pass' 'Muse 账号池' "HTTP $($accountsResult.Status)"
+                try {
+                    $accounts = ($accountsResult.Body | ConvertFrom-Json).accounts
+                    $total = @($accounts).Count
+                    $ready = @($accounts | Where-Object { $_.enabled -and $_.essential_ok -and $_.ok -ne $false }).Count
+                    if ($ready -gt 0) { Add-Result 'pass' 'Muse 账号' "共 $total 个，可用 $ready 个" }
+                    elseif ($total -gt 0) { Add-Result 'warn' 'Muse 账号' "共 $total 个但当前都不可用（掉线或过期）。启动后在画布顶部 Muse 面板重新登录" }
+                    else { Add-Result 'warn' 'Muse 账号' '还没有账号。启动后点画布顶部 Muse → 添加账号，用你自己的 Muse 账号登录（没有邀请码的先在 MuseCanvas 页面公告里获取）' }
+                } catch { }
+                $protocolResult = Get-LocalJson "http://127.0.0.1:$protocolPort/v1/models" $muse.poolKey
+                if ($protocolResult -and $protocolResult.Status -lt 400) { Add-Result 'pass' 'Muse 生成协议' "HTTP $($protocolResult.Status)" }
+                elseif ($protocolResult) { Add-Result 'warn' 'Muse 生成协议' "返回 HTTP $($protocolResult.Status)，账号池通了但协议没就绪" }
+                else { Add-Result 'warn' 'Muse 生成协议' '协议服务没响应。在 MuseCanvas 页面确认六个服务都正常，必要时 Stop 再 Start' }
+            }
+        }
+    } catch {
+        Add-Result 'warn' 'Muse 登录链路' "install.json 读不出来：$museInstall"
+    }
+}
+
+# ---------------------------------------------------------------------------
 # 5. 安装依赖
 # ---------------------------------------------------------------------------
 if (-not $SkipDeps) {
