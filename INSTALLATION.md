@@ -192,6 +192,13 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 
 用 `git clone` 拿的更简单：`git pull` 后停止再启动。
 
+想装**指定版本**（回退到旧版、或给多台机器对齐同一版）时，把地址里的 `main` 换成标签：
+
+```
+https://github.com/maluom13/infinite-canvas-studio/archive/refs/tags/v0.20.0.zip   ← 第一版
+https://github.com/maluom13/infinite-canvas-studio/archive/refs/tags/v0.20.1.zip   ← 第二版
+```
+
 错误提示、路径解析、渠道注册这类改动都属于**运行时逻辑，不重启不会生效**。
 
 ### 怎么确认真的更新成功了
