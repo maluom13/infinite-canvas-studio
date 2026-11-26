@@ -24,8 +24,7 @@ const latestChangelogUrls = [
 async function fetchFirstAvailable(urls: string[]): Promise<string> {
     for (const url of urls) {
         try {
-            // jsDelivr 对 @main 有缓存，加个时间戳参数没有意义（CDN 按路径缓存），
-            // 这里只做超时控制：不可达的源不该让「检查更新」一直转圈。
+            // 只做超时控制：不可达的源不该让「检查更新」一直转圈。
             const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (!response.ok) continue;
             const text = await response.text();
@@ -35,6 +34,30 @@ async function fetchFirstAvailable(urls: string[]): Promise<string> {
         }
     }
     throw new Error("all sources failed");
+}
+
+function isValidVersion(text: string) {
+    return /^v?\d+\.\d+\.\d+/.test(text.trim());
+}
+
+/**
+ * 版本号必须取多个源里最新的那个，而不是「第一个成功的」。
+ * jsDelivr 对 @main 有缓存（可能几小时），如果它先返回旧版本，
+ * 用户就会一直看到「已是最新」，反而发现不了刚发的版。
+ */
+async function fetchLatestVersion(): Promise<string> {
+    const results = await Promise.allSettled(
+        latestVersionUrls.map(async (url) => {
+            const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            if (!response.ok) throw new Error(String(response.status));
+            const text = (await response.text()).trim();
+            if (!isValidVersion(text)) throw new Error("invalid version");
+            return text;
+        }),
+    );
+    const versions = results.filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled").map((result) => result.value);
+    if (!versions.length) throw new Error("all sources failed");
+    return versions.reduce((latest, current) => (isNewerVersion(current, latest) ? current : latest));
 }
 
 function readLocalReleases(): ReleaseInfo[] {
@@ -69,8 +92,8 @@ export function useVersionCheck() {
 
     const checkLatestVersion = useCallback(async () => {
         try {
-            const version = await fetchFirstAvailable(latestVersionUrls);
-            setLatestVersion(version.trim() || currentVersion);
+            const version = await fetchLatestVersion();
+            setLatestVersion(version || currentVersion);
             return true;
         } catch {
             return false;
@@ -81,8 +104,8 @@ export function useVersionCheck() {
         async (showMessage = false) => {
             setChecking(true);
             try {
-                const [version, changelog] = await Promise.all([fetchFirstAvailable(latestVersionUrls), fetchFirstAvailable(latestChangelogUrls)]);
-                setLatestVersion(version.trim() || currentVersion);
+                const [version, changelog] = await Promise.all([fetchLatestVersion(), fetchFirstAvailable(latestChangelogUrls)]);
+                setLatestVersion(version || currentVersion);
                 if (changelog.trim()) setReleases(parseChangelog(changelog));
                 if (showMessage) message.success(t("version.updated"));
                 return true;
