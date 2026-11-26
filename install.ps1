@@ -23,8 +23,16 @@ function Add-Result($status, $name, $detail) {
 }
 function Write-Step($text) { Write-Host ""; Write-Host "==> $text" -ForegroundColor Cyan }
 
+# 版本号写进安装报告：以后对方反馈问题时，第一句就能说清「装的是哪一版」。
+$productVersion = 'unknown'
+$versionFile = Join-Path $PSScriptRoot 'VERSION'
+if (Test-Path -LiteralPath $versionFile) {
+    $productVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+    if (-not $productVersion) { $productVersion = 'unknown' }
+}
+
 Write-Host ''
-Write-Host '无限画布 · 本机安装' -ForegroundColor White
+Write-Host "无限画布 · 本机安装  $productVersion" -ForegroundColor White
 Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
 Write-Host '安装过程不会删除任何已有数据，不会停止与它无关的程序，' -ForegroundColor DarkGray
 Write-Host '也不会代你登录任何账号。' -ForegroundColor DarkGray
@@ -534,7 +542,7 @@ if (-not $museInstall) {
 }
 
 Write-Host ''
-Write-Host "程序目录：$Destination" -ForegroundColor White
+Write-Host "程序目录：$Destination（$productVersion）" -ForegroundColor White
 Write-Host '启动：桌面「无限画布」快捷方式，或运行 Start-InfiniteCanvas.ps1' -ForegroundColor White
 Write-Host '停止：桌面「无限画布 - 停止」快捷方式，或运行 Stop-InfiniteCanvas.ps1' -ForegroundColor White
 Write-Host ''

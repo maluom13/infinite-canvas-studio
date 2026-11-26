@@ -367,6 +367,9 @@ export default {
         changelogFailed: "更新日志读取失败",
         updated: "已获取最新版本信息",
         updateFailed: "获取最新版本信息失败",
+        howToUpdate: "怎么更新",
+        updateSteps: "下载最新版 ZIP 解压，覆盖程序目录即可。不要覆盖 canvas.config.json 和数据目录，那里存着你的配置与作品。",
+        updateDownload: "下载最新版",
         types: { added: "新增", fixed: "修复", changed: "调整", optimized: "优化", docs: "文档" },
     },
     config: {

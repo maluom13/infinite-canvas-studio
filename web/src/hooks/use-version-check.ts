@@ -4,16 +4,49 @@ import { useTranslation } from "react-i18next";
 import { APP_VERSION } from "@/constant/env";
 import { parseChangelog, type ReleaseInfo } from "@/lib/release";
 
-const latestVersionUrl = "https://raw.githubusercontent.com/basketikun/infinite-canvas/main/VERSION";
-const latestChangelogUrl = "https://raw.githubusercontent.com/basketikun/infinite-canvas/main/CHANGELOG.md";
+/**
+ * 检查的是本分叉自己的版本线，不是上游 basketikun/infinite-canvas。
+ * 上游那份永远只有原项目的版本号，查它会导致：本分叉的新版本永远发现不了，
+ * 而上游一升版就提示「有新版本」，下载到的却是与本项目增强无关的代码。
+ *
+ * 每台机器的网络环境不同（raw.githubusercontent 在部分网络下不可达），
+ * 所以按顺序尝试多个源，任一成功即用；全部失败时保持当前版本，不误报有新版本。
+ */
+const latestVersionUrls = [
+    "https://cdn.jsdelivr.net/gh/maluom13/infinite-canvas-studio@main/VERSION",
+    "https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/VERSION",
+];
+const latestChangelogUrls = [
+    "https://cdn.jsdelivr.net/gh/maluom13/infinite-canvas-studio@main/CHANGELOG.md",
+    "https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/CHANGELOG.md",
+];
+
+async function fetchFirstAvailable(urls: string[]): Promise<string> {
+    for (const url of urls) {
+        try {
+            // jsDelivr 对 @main 有缓存，加个时间戳参数没有意义（CDN 按路径缓存），
+            // 这里只做超时控制：不可达的源不该让「检查更新」一直转圈。
+            const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            if (!response.ok) continue;
+            const text = await response.text();
+            if (text.trim()) return text;
+        } catch {
+            // 换下一个源
+        }
+    }
+    throw new Error("all sources failed");
+}
 
 function readLocalReleases(): ReleaseInfo[] {
     return __APP_RELEASES__ || [];
 }
 
 function toVersionParts(version: string) {
-    const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)/);
-    return match ? match.slice(1).map(Number) : null;
+    // 支持 v0.21.0-studio.1 这种四段写法：前三位跟 semver，第四位是本分叉自己的发版序号。
+    // 少了第四位会导致 studio.1 → studio.2 被判定为「同一版本」，永远提示已是最新。
+    const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-studio\.(\d+))?/i);
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] ? Number(match[4]) : 0];
 }
 
 function isNewerVersion(latestVersion: string, currentVersion: string) {
@@ -36,9 +69,7 @@ export function useVersionCheck() {
 
     const checkLatestVersion = useCallback(async () => {
         try {
-            const response = await fetch(latestVersionUrl);
-            if (!response.ok) return false;
-            const version = await response.text();
+            const version = await fetchFirstAvailable(latestVersionUrls);
             setLatestVersion(version.trim() || currentVersion);
             return true;
         } catch {
@@ -50,10 +81,7 @@ export function useVersionCheck() {
         async (showMessage = false) => {
             setChecking(true);
             try {
-                const [versionResponse, changelogResponse] = await Promise.all([fetch(latestVersionUrl), fetch(latestChangelogUrl)]);
-                if (!versionResponse.ok) throw new Error(t("version.readFailed"));
-                if (!changelogResponse.ok) throw new Error(t("version.changelogFailed"));
-                const [version, changelog] = await Promise.all([versionResponse.text(), changelogResponse.text()]);
+                const [version, changelog] = await Promise.all([fetchFirstAvailable(latestVersionUrls), fetchFirstAvailable(latestChangelogUrls)]);
                 setLatestVersion(version.trim() || currentVersion);
                 if (changelog.trim()) setReleases(parseChangelog(changelog));
                 if (showMessage) message.success(t("version.updated"));
@@ -61,6 +89,8 @@ export function useVersionCheck() {
             } catch {
                 setLatestVersion(currentVersion);
                 setReleases(localReleases);
+                // 网络不通时不要把「检查失败」和「有新版本」混在一起：
+                // 保持当前版本号，提示网络原因，避免用户以为已经是最新。
                 if (showMessage) message.error(t("version.updateFailed"));
                 return false;
             } finally {

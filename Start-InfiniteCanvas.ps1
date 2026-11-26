@@ -162,4 +162,8 @@ if (-not $NoBrowser) {
     Start-Process -FilePath $chrome -ArgumentList @("--user-data-dir=`"$canvasProfile`"", '--no-first-run', '--no-default-browser-check', "`"$url`"")
 }
 
-Write-Output "Infinite Canvas is running: http://127.0.0.1:$webPort"
+$versionFile = Join-Path $root 'VERSION'
+$productVersion = ''
+if (Test-Path -LiteralPath $versionFile) { $productVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim() }
+if ($productVersion) { Write-Output "Infinite Canvas $productVersion is running: http://127.0.0.1:$webPort" }
+else { Write-Output "Infinite Canvas is running: http://127.0.0.1:$webPort" }

@@ -26,6 +26,7 @@ type VersionReleaseModalProps = {
 export function VersionReleaseModal({ className, style }: VersionReleaseModalProps) {
     const { t } = useTranslation();
     const { open, setOpen, openReleaseModal, latestVersion, releases, checking, hasNewVersion, checkLatestRelease } = useVersionCheck();
+    const downloadUrl = "https://github.com/maluom13/infinite-canvas-studio/archive/refs/heads/main.zip";
 
     return (
         <>
@@ -61,6 +62,17 @@ export function VersionReleaseModal({ className, style }: VersionReleaseModalPro
                         <div className="mt-1 text-base font-semibold text-stone-950 dark:text-stone-100">{latestVersion}</div>
                     </div>
                 </div>
+                {hasNewVersion ? (
+                    <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950/30">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-xs font-semibold text-green-800 dark:text-green-300">{t("version.howToUpdate")}</div>
+                            <a href={downloadUrl} target="_blank" rel="noreferrer" className="text-[11px] font-medium text-green-700 underline underline-offset-2 dark:text-green-400">
+                                {t("version.updateDownload")}
+                            </a>
+                        </div>
+                        <div className="mt-1 text-xs leading-5 text-green-800/90 dark:text-green-300/90">{t("version.updateSteps")}</div>
+                    </div>
+                ) : null}
                 <div className="max-h-[56vh] overflow-y-auto pr-2">
                     <Timeline
                         items={releases.map((release) => ({
