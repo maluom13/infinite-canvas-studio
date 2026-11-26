@@ -370,6 +370,8 @@ export default {
         howToUpdate: "怎么更新",
         newAvailable: "有新版本",
         newAvailableTitle: "有新版本 {{version}}，点此查看更新方法",
+        updateSource: "更新源",
+        updateSourceHint: "检查更新只查这个仓库，不会查上游或其他分叉，避免提示到不兼容的版本",
         updateSteps: "下载最新版 ZIP 解压，覆盖程序目录即可。不要覆盖 canvas.config.json 和数据目录，那里存着你的配置与作品。",
         updateDownload: "下载最新版",
         types: { added: "新增", fixed: "修复", changed: "调整", optimized: "优化", docs: "文档" },

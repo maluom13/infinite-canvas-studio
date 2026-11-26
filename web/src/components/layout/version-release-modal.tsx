@@ -99,6 +99,9 @@ export function VersionReleaseModal({ className, style }: VersionReleaseModalPro
                             </button>
                         </div>
                         <div className="mt-1 text-base font-semibold text-stone-950 dark:text-stone-100">{latestVersion}</div>
+                        <div className="mt-0.5 truncate font-mono text-[10px] text-stone-400 dark:text-stone-500" title={t("version.updateSourceHint")}>
+                            {t("version.updateSource")} maluom13/infinite-canvas-studio
+                        </div>
                     </div>
                 </div>
                 {hasNewVersion ? (
