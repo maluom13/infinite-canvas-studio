@@ -197,11 +197,24 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 
 ### 更新步骤
 
+**第 0 步：先确认「程序目录」在哪。** 不知道就打开 `http://127.0.0.1:3010/muse/version`，看 `projectRoot` 字段的值，那就是要覆盖的目录（例如 `D:/InfiniteCanvas`）。
+
 1. 下载最新版：`https://github.com/maluom13/infinite-canvas-studio/archive/refs/heads/main.zip`
-2. 解压，覆盖程序目录
+2. 解压到一个临时位置（例如 `D:\temp\v0201`）。解压出来会是一个带版本号的文件夹，**进去**才是程序文件
+3. 把**里面的内容**复制到第 0 步查到的程序目录，覆盖同名文件
+   - 注意：不要把整个 `infinite-canvas-studio-0.20.1` 文件夹直接拖进程序目录，那样会多出一层
    - **不要覆盖** `canvas.config.json` —— 你的路径与端口配置在里面
    - **不要覆盖**数据目录 —— 作品、登录态、发布记录都在那里
-3. **停止再启动**：桌面「无限画布 - 停止」→「无限画布」
+4. **停止再启动**：桌面「无限画布 - 停止」→「无限画布」
+
+如果不想手动复制，用新版里的安装脚本做覆盖更省事（`-SkipDeps` 表示复用已有依赖，不再联网安装）：
+
+```powershell
+cd D:\temp\v0201\infinite-canvas-studio-0.20.1
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Destination "D:\InfiniteCanvas" -SkipDeps -NoStart
+```
+
+**不要把它解压到一个新目录直接双击启动**：那等于装第二套程序，配置和数据都另起一份，看不到原来的作品。
 
 用 `git clone` 拿的更简单：`git pull` 后停止再启动。
 
