@@ -1,11 +1,15 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Cpu } from "lucide-react";
+import { Cpu, Plug } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { modelOptionLabel, modelOptionName, selectableModelsByCapability, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
+
+const DOUBAO_CHANNEL_ID = "doubao-local";
+/** 豆包还没接入时用它占位：点一下直接去登录，而不是让下拉里根本看不到豆包。 */
+const DOUBAO_ENTRY = "__doubao_connect__";
 
 type ModelPickerProps = {
     config: AiConfig;
@@ -15,14 +19,20 @@ type ModelPickerProps = {
     className?: string;
     fullWidth?: boolean;
     placeholder?: string;
-    onMissingConfig?: () => void;
+    onMissingConfig?: (kind?: "muse" | "doubao") => void;
 };
 
 export function ModelPicker({ config, value, onChange, capability, className, fullWidth = false, placeholder, onMissingConfig }: ModelPickerProps) {
     const { t } = useTranslation();
     const pickerId = useId();
     const [open, setOpen] = useState(false);
-    const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
+    const doubaoConnected = config.channels.some((channel) => channel.id === DOUBAO_CHANNEL_ID);
+    const options = useMemo(() => {
+        const base = Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model))));
+        // 只有已经有可选模型时才补这一项：完全没配置的新用户仍然看到「先去添加渠道」的提示。
+        const supportsDoubao = !capability || capability === "image" || capability === "video";
+        return base.length && !doubaoConnected && supportsDoubao ? [...base, DOUBAO_ENTRY] : base;
+    }, [capability, config, value, doubaoConnected]);
     const current = value || "";
     const pickerPlaceholder = placeholder || t("settingsPanels.model.select");
 
@@ -43,7 +53,14 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
                 if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));
                 setOpen(nextOpen);
             }}
-            onValueChange={onChange}
+            onValueChange={(next) => {
+                if (next === DOUBAO_ENTRY) {
+                    setOpen(false);
+                    onMissingConfig?.("doubao");
+                    return;
+                }
+                onChange(next);
+            }}
         >
             <SelectTrigger
                 className={cn(
@@ -70,11 +87,20 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 {options.length ? (
-                    options.map((model) => (
-                        <SelectItem key={model} value={model} textValue={modelOptionLabel(config, model)}>
-                            <ModelLabel config={config} model={model} />
-                        </SelectItem>
-                    ))
+                    options.map((model) =>
+                        model === DOUBAO_ENTRY ? (
+                            <SelectItem key={model} value={model} textValue={t("settingsPanels.model.doubaoConnect")}>
+                                <span className="flex min-w-0 items-center gap-2">
+                                    <Plug className="size-4 shrink-0 opacity-70" />
+                                    <span className="truncate">{t("settingsPanels.model.doubaoConnect")}</span>
+                                </span>
+                            </SelectItem>
+                        ) : (
+                            <SelectItem key={model} value={model} textValue={modelOptionLabel(config, model)}>
+                                <ModelLabel config={config} model={model} />
+                            </SelectItem>
+                        ),
+                    )
                 ) : (
                     <SelectItem value="__empty__" disabled>
                         {emptyModelLabel(config, capability)}

@@ -7,6 +7,19 @@ import { encodeChannelModel, modelOptionsFromChannels, useConfigStore } from "@/
 
 const DOUBAO_CHANNEL_ID = "doubao-local";
 
+/** 豆包渠道定义：登录成功或手动接入时都用这一份，避免两处写法不一致。 */
+const doubaoChannel = () => ({
+    id: DOUBAO_CHANNEL_ID,
+    name: "豆包",
+    baseUrl: "/doubao/v1",
+    apiKey: "local-session",
+    apiFormat: "openai" as const,
+    models: [
+        { name: "doubao-image", capability: "image" as const },
+        { name: "doubao-video", capability: "video" as const },
+    ],
+});
+
 const stateText: Record<string, string> = {
     idle: "未登录",
     waiting: "等待登录…",
@@ -63,6 +76,16 @@ export function ConfigDoubao() {
         return stopPolling;
     }, [refresh, watch]);
 
+    // 已登录就把渠道接进画布：否则模型下拉里看不到豆包，还得再点一次「接入画布」。
+    // 不改 imageModel / videoModel，避免顶掉用户已经选好的默认模型。
+    useEffect(() => {
+        if (!status?.loggedIn) return;
+        const config = useConfigStore.getState().config;
+        if (config.channels.some((channel) => channel.id === DOUBAO_CHANNEL_ID)) return;
+        const next = [...config.channels, doubaoChannel()];
+        useConfigStore.setState({ config: { ...config, channels: next, models: modelOptionsFromChannels(next) } });
+    }, [status?.loggedIn]);
+
     const login = async () => {
         setBusy("login");
         setMessage("");
@@ -103,17 +126,7 @@ export function ConfigDoubao() {
     /** 把豆包作为独立渠道接进画布：模型走 /doubao/v1，不经过 Muse。 */
     const connect = (withDefaults = true) => {
         const config = useConfigStore.getState().config;
-        const channel = {
-            id: DOUBAO_CHANNEL_ID,
-            name: "豆包",
-            baseUrl: "/doubao/v1",
-            apiKey: "local-session",
-            apiFormat: "openai" as const,
-            models: [
-                { name: "doubao-image", capability: "image" as const },
-                { name: "doubao-video", capability: "video" as const },
-            ],
-        };
+        const channel = doubaoChannel();
         const next = [...config.channels.filter((item) => item.id !== DOUBAO_CHANNEL_ID), channel];
         useConfigStore.setState({
             config: {

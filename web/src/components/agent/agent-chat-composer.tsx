@@ -112,8 +112,8 @@ export function AgentChatComposer({
     return (
         <div className="px-2 pb-2 pt-2" onWheelCapture={(event) => event.stopPropagation()}>
             <div className="mb-2 space-y-1.5 px-1" style={{ color: theme.node.text }}>
-                <div className="flex items-center gap-2"><span className="w-16 shrink-0 text-xs" style={{ color: theme.node.muted }}>Agent 视频</span><ModelPicker config={config} value={config.videoModel} capability="video" fullWidth onChange={(value) => updateConfig("videoModel", value)} onMissingConfig={() => openConfigDialog(false, "muse")} /></div>
-                <div className="flex items-center gap-2"><span className="w-16 shrink-0 text-xs" style={{ color: theme.node.muted }}>Agent 图片</span><ModelPicker config={config} value={config.imageModel} capability="image" fullWidth onChange={(value) => updateConfig("imageModel", value)} onMissingConfig={() => openConfigDialog(false, "muse")} /></div>
+                <div className="flex items-center gap-2"><span className="w-16 shrink-0 text-xs" style={{ color: theme.node.muted }}>Agent 视频</span><ModelPicker config={config} value={config.videoModel} capability="video" fullWidth onChange={(value) => updateConfig("videoModel", value)} onMissingConfig={(kind) => openConfigDialog(false, kind || "muse")} /></div>
+                <div className="flex items-center gap-2"><span className="w-16 shrink-0 text-xs" style={{ color: theme.node.muted }}>Agent 图片</span><ModelPicker config={config} value={config.imageModel} capability="image" fullWidth onChange={(value) => updateConfig("imageModel", value)} onMissingConfig={(kind) => openConfigDialog(false, kind || "muse")} /></div>
                 <p className="text-xs leading-5" style={{ color: theme.node.muted }}>Agent 生成图片和视频时使用这里的默认模型；选择同时更新画布的默认模型。Codex 对话模型在输入框下方选择。</p>
             </div>
             <div className="rounded-[24px] border px-3 pb-3 pt-3 shadow-lg" style={{ background: theme.toolbar.panel, borderColor: theme.node.stroke }}>
