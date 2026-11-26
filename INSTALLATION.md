@@ -195,7 +195,29 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 
 从 `v0.20.1` 起，检查更新只查本仓库（`maluom13/infinite-canvas-studio`），不会再出现上游 `v1.0.0` 的误报。
 
-### 更新步骤
+### 最快的方式：一条命令自动更新
+
+在**要更新的那台机器**上打开 PowerShell（开始菜单右键 → 终端），粘贴这一整行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/maluom13/infinite-canvas-studio@main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
+```
+
+它会自动完成：**找到程序目录**（问运行中的服务要 `projectRoot`，不用你自己找）→ 多源下载 → 核对包内版本 → 停止服务 → 覆盖（保留 `canvas.config.json` 与数据目录）→ 启动。
+
+如果上面那条连不上，换其中任意一条：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://ghfast.top/https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
+```
+
+**如果三条都不通**（那台机器基本连不上外网）：在能上网的电脑下载 ZIP，用 U 盘或聊天工具传过去，然后手动覆盖，步骤见下。
+
+### 手动更新（连不上外网时）
 
 **第 0 步：先确认「程序目录」在哪。** 不知道就打开 `http://127.0.0.1:3010/muse/version`，看 `projectRoot` 字段的值，那就是要覆盖的目录（例如 `D:/InfiniteCanvas`）。
 
