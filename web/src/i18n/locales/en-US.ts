@@ -368,6 +368,8 @@ export default {
         updated: "Latest version information loaded",
         updateFailed: "Failed to load the latest version information",
         howToUpdate: "How to update",
+        newAvailable: "Update",
+        newAvailableTitle: "Version {{version}} is available — click to see how to update",
         updateSteps: "Download the latest ZIP and extract it over the program folder. Do not overwrite canvas.config.json or your data directory — your settings and work live there.",
         updateDownload: "Download latest",
         types: { added: "Added", fixed: "Fixed", changed: "Changed", optimized: "Optimized", docs: "Docs" },

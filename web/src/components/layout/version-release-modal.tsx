@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { Modal, Tag, Timeline } from "antd";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -23,24 +23,63 @@ type VersionReleaseModalProps = {
     style?: CSSProperties;
 };
 
+/**
+ * 自动提示只做一次，按版本号记住。
+ * 这个组件在「画布顶栏」和「应用导航」各挂了一份，模块级标记保证只弹一个窗。
+ */
+const NOTIFIED_VERSION_KEY = "canvas.update.lastNotified";
+let notifyShownThisSession = false;
+
 export function VersionReleaseModal({ className, style }: VersionReleaseModalProps) {
     const { t } = useTranslation();
     const { open, setOpen, openReleaseModal, latestVersion, releases, checking, hasNewVersion, checkLatestRelease } = useVersionCheck();
     const downloadUrl = "https://github.com/maluom13/infinite-canvas-studio/archive/refs/heads/main.zip";
 
+    // 光靠一个小绿点，多数人不会注意到。发现新版时主动弹一次，
+    // 但同一版本只弹一次——否则每次打开都打断人，比不提示还糟。
+    useEffect(() => {
+        if (!hasNewVersion || notifyShownThisSession) return;
+        let notified = "";
+        try {
+            notified = localStorage.getItem(NOTIFIED_VERSION_KEY) || "";
+        } catch {
+            // 隐私模式下 localStorage 不可用，当作没提示过
+        }
+        if (notified === latestVersion) return;
+        notifyShownThisSession = true;
+        const timer = window.setTimeout(() => {
+            try {
+                localStorage.setItem(NOTIFIED_VERSION_KEY, latestVersion);
+            } catch {
+                // 存不了就算了，最多下次再提示一次
+            }
+            openReleaseModal();
+        }, 6000);
+        return () => window.clearTimeout(timer);
+    }, [hasNewVersion, latestVersion, openReleaseModal]);
+
     return (
         <>
             <button
                 type="button"
-                className={className || "shrink-0 cursor-pointer text-xs font-medium text-stone-500 transition hover:text-stone-950 dark:text-stone-400 dark:hover:text-white"}
-                style={style}
+                className={
+                    hasNewVersion
+                        ? "shrink-0 cursor-pointer rounded-full border border-green-700/20 bg-green-600 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm transition hover:bg-green-700"
+                        : className || "shrink-0 cursor-pointer text-xs font-medium text-stone-500 transition hover:text-stone-950 dark:text-stone-400 dark:hover:text-white"
+                }
+                style={hasNewVersion ? undefined : style}
                 onClick={openReleaseModal}
-                title={t("version.viewUpdates")}
+                title={hasNewVersion ? t("version.newAvailableTitle", { version: latestVersion }) : t("version.viewUpdates")}
+                aria-label={hasNewVersion ? t("version.newAvailableTitle", { version: latestVersion }) : t("version.viewUpdates")}
             >
-                <span className="relative inline-flex">
-                    {APP_VERSION}
-                    {hasNewVersion ? <span className="absolute -right-1.5 -top-1 size-1.5 rounded-full bg-green-500" /> : null}
-                </span>
+                {hasNewVersion ? (
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="size-1.5 rounded-full bg-white/90" />
+                        {t("version.newAvailable")}
+                    </span>
+                ) : (
+                    APP_VERSION
+                )}
             </button>
             <Modal title={t("version.title")} open={open} width={680} centered footer={null} onCancel={() => setOpen(false)}>
                 <div className="mb-5 grid grid-cols-2 gap-3">
