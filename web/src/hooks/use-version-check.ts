@@ -65,9 +65,9 @@ function readLocalReleases(): ReleaseInfo[] {
 }
 
 function toVersionParts(version: string) {
-    // 支持 v0.21.0-studio.1 这种四段写法：前三位跟 semver，第四位是本分叉自己的发版序号。
-    // 少了第四位会导致 studio.1 → studio.2 被判定为「同一版本」，永远提示已是最新。
-    const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-studio\.(\d+))?/i);
+    // 支持 v0.20.1 以及更细的 v0.20.1.2 四段写法：主版本看前三段，第四段留给需要时递增。
+    // 只按前三段比较，会让「第四段不同」被判成同一版本，从而永远提示已是最新。
+    const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?/);
     if (!match) return null;
     return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] ? Number(match[4]) : 0];
 }
