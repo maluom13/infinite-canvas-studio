@@ -2,7 +2,9 @@
 
 ## 复制给 AI 的安装指令
 
-这套工具**出图/出视频首选 MuseCanvas**（第三方软件，不在本仓库内）；装不上时用**豆包通道**兜底。下面这条指令把两件事合并成一次安装，整块复制发给任意能执行命令的 AI（Claude Code、Codex、WorkBuddy 等）：
+这套工具**出图/出视频首选 MuseCanvas**（第三方软件，不在本仓库内）；装不上时用**豆包通道**兜底。下面这条指令把两件事合并成一次安装，整块复制发给任意能执行命令的 AI（Claude Code、Codex、WorkBuddy 等）。
+
+> **没有可用的 AI、或 AI 登录不上**：跳过这段，看下面的「不借助 AI，手动安装（三步）」，效果一样。
 
 ```text
 请在我这台 Windows 电脑上装好一整套 AI 内容生产工具（画布 + 出图能力）。一次装完，不要拆成两次问我。
@@ -153,6 +155,20 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 ```
 
 启动成功后浏览器会打开画布，终端输出 `Infinite Canvas is running: http://127.0.0.1:3010`。
+
+## 不借助 AI，手动安装（三步）
+
+**WorkBuddy / Claude Code / Codex 都不是必需的**。它们只是替你把命令敲一遍；安装本身是一个脚本，自己点两下就行。
+
+1. **拿代码**：下载
+   `https://github.com/maluom13/infinite-canvas-studio/archive/refs/heads/main.zip`
+   解压到非系统盘，例如 `D:\InfiniteCanvas`。
+   - 那台机器打不开 GitHub：在能上网的机器上下载 ZIP，用 U 盘或聊天工具传过去再解压，效果一样。
+2. **确认 Node.js**：没装就去 `https://nodejs.org/` 装 LTS 版（18 以上）。装完最好重开一次终端。
+3. **双击 `install.cmd`**（或右键 `install.ps1` → 使用 PowerShell 运行）。
+   它会装依赖、构建、生成配置、建快捷方式、启动，结束时按「通过 / 未通过 / 未测试」逐项报告。
+
+以后只从桌面 **「无限画布」** 进。MuseCanvas 同理，它的安装包里自带 `双击安装.bat`，也不需要 AI；但登录必须用你自己的 Muse 账号/邀请码。
 
 ## 更新到最新版（报错时先做这一步）
 
