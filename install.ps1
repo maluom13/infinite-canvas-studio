@@ -4,7 +4,10 @@
     [switch]$SkipDeps,
     [switch]$NoShortcut,
     [switch]$NoStart,
-    [switch]$InstallPython
+    [switch]$InstallPython,
+    # 把 MuseCanvas 自带的启动器从桌面移走，避免对方点进去买别人的账号。默认执行；
+    # 想保留桌面图标就用 -KeepMuseLauncher。
+    [switch]$KeepMuseLauncher
 )
 
 $ErrorActionPreference = 'Stop'
@@ -446,30 +449,54 @@ if (-not $NoShortcut) {
 
         Add-Result 'pass' '桌面快捷方式' '「无限画布」与「无限画布 - 停止」'
 
-        # 桌面上可能还有 MuseCanvas 自己的启动器：点它打开的是它自带的画布（不是本程序），
-        # 对方很容易以为装错了。只改「启动器」这一类，浏览器 PWA 快捷方式（Muse.lnk）不要动。
-        $renamed = 0
-        $newName = 'MuseCanvas 启动器（会打开别人的画布）.lnk'
+        # 桌面上 MuseCanvas 自带的启动器点进去是「别人的画布」，首页就在卖 Muse 账号，
+        # 会把本该找本程序的客户引走。仅改名没用——名字里带 MuseCanvas 照样有人点。
+        # 默认把这类启动器移出桌面、收进程序目录下的「不常用工具」文件夹；
+        # 这是移动不是删除，随时能拿回来。浏览器 PWA 快捷方式（Muse.lnk）不动。
+        $moved = 0
+        $park = Join-Path $Destination '不常用工具'
         $desktops = @([Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory')) | Where-Object { $_ }
-        foreach ($desk in $desktops) {
-            foreach ($item in Get-ChildItem -LiteralPath $desk -Filter '*.lnk' -ErrorAction SilentlyContinue) {
-                if ($item.Name -like '无限画布*') { continue }
-                try {
-                    $shortcut = $shell.CreateShortcut($item.FullName)
-                    $signature = "$($shortcut.TargetPath) $($shortcut.Arguments)"
-                    if ($signature -notmatch 'MuseCanvas-Launcher\.ps1|Manage\.ps1|MuseCanvas\.exe|MuseCanvas\.bat') { continue }
-                    if ($shortcut.TargetPath -match 'chrome|msedge|firefox') { continue }
-                    $newPath = Join-Path $desk $newName
-                    if ($item.FullName -ne $newPath -and -not (Test-Path -LiteralPath $newPath)) {
-                        Rename-Item -LiteralPath $item.FullName -NewName $newName -ErrorAction Stop
-                        $renamed++
-                    }
-                } catch { }
+        if (-not $KeepMuseLauncher) {
+            foreach ($desk in $desktops) {
+                foreach ($item in Get-ChildItem -LiteralPath $desk -Filter '*.lnk' -ErrorAction SilentlyContinue) {
+                    if ($item.Name -like '无限画布*') { continue }
+                    try {
+                        $shortcut = $shell.CreateShortcut($item.FullName)
+                        $signature = "$($shortcut.TargetPath) $($shortcut.Arguments)"
+                        if ($signature -notmatch 'MuseCanvas-Launcher\.ps1|Manage\.ps1|MuseCanvas\.exe|MuseCanvas\.bat') { continue }
+                        if ($shortcut.TargetPath -match 'chrome|msedge|firefox') { continue }
+                        New-Item -ItemType Directory -Path $park -Force | Out-Null
+                        $target = Join-Path $park $item.Name
+                        if (Test-Path -LiteralPath $target) { $target = Join-Path $park ("{0}_{1}.lnk" -f [IO.Path]::GetFileNameWithoutExtension($item.Name), [guid]::NewGuid().ToString('N').Substring(0,6)) }
+                        Move-Item -LiteralPath $item.FullName -Destination $target -ErrorAction Stop
+                        $moved++
+                    } catch { }
+                }
             }
-        }
-        if ($renamed -gt 0) {
-            $museLauncherRenamed = $true
-            Add-Result 'pass' 'MuseCanvas 启动器已改名' '现在叫「MuseCanvas 启动器（会打开别人的画布）」，避免和本程序的「无限画布」点混'
+            if ($moved -gt 0) {
+                $museLauncherRenamed = $true
+                Add-Result 'pass' '已移走别人的画布入口' "桌面上的 MuseCanvas 启动器（$moved 个）已移到「$park」，没有删除，随时可移回。客户只会看到本程序的「无限画布」。"
+            }
+        } else {
+            # 用户明确要保留：至少改成醒目的警告名
+            $renamed = 0
+            $newName = '【别点·别人的画布】MuseCanvas 启动器.lnk'
+            foreach ($desk in $desktops) {
+                foreach ($item in Get-ChildItem -LiteralPath $desk -Filter '*.lnk' -ErrorAction SilentlyContinue) {
+                    if ($item.Name -like '无限画布*') { continue }
+                    try {
+                        $shortcut = $shell.CreateShortcut($item.FullName)
+                        $signature = "$($shortcut.TargetPath) $($shortcut.Arguments)"
+                        if ($signature -notmatch 'MuseCanvas-Launcher\.ps1|Manage\.ps1|MuseCanvas\.exe|MuseCanvas\.bat') { continue }
+                        if ($shortcut.TargetPath -match 'chrome|msedge|firefox') { continue }
+                        if ($item.Name -ne $newName) { Rename-Item -LiteralPath $item.FullName -NewName $newName -ErrorAction Stop; $renamed++ }
+                    } catch { }
+                }
+            }
+            if ($renamed -gt 0) {
+                $museLauncherRenamed = $true
+                Add-Result 'pass' 'MuseCanvas 启动器已标记' '已改名为「【别点·别人的画布】」，避免客户点错。'
+            }
         }
     } catch {
         Add-Result 'warn' '桌面快捷方式' "创建失败：$($_.Exception.Message)。可直接运行 Start-InfiniteCanvas.ps1"
@@ -516,7 +543,11 @@ if ($museInstall) {
 }
 Write-Host '   - 本程序的画布是 localhost:3010，桌面「无限画布」快捷方式打开的就是它，会自动接好 Agent' -ForegroundColor Gray
 if ($museLauncherRenamed) {
-    Write-Host '   - MuseCanvas 的桌面启动器已改名为「MuseCanvas 启动器（会打开别人的画布）」，别拿它开界面' -ForegroundColor Gray
+    if ($KeepMuseLauncher) {
+        Write-Host '   - MuseCanvas 启动器已改名为「【别点·别人的画布】」，提醒客户不要点' -ForegroundColor Gray
+    } else {
+        Write-Host "   - 桌面上的 MuseCanvas 启动器已移到「$park」，没有删除；客户不会误点进别人的画布买账号" -ForegroundColor Gray
+    }
 }
 Write-Host '   - 两边只共用后台的池/协议，画布数据互不相通：在 3000 里看不到你在 3010 做的图' -ForegroundColor Gray
 
