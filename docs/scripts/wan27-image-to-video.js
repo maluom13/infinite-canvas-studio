@@ -1,98 +1,101 @@
 /**
- * 阿里云百炼「万相 2.7 图生视频」适配脚本。
+ * 图生视频适配脚本 —— 适用于百炼官方 / 百炼中转站（含 qianwenaiapi.com）
  *
- * 用途：画布默认的 OpenAI 格式请求 /v1/videos，阿里云不认（会 404）。
- * 这个脚本改用阿里云自己的接口：
+ * 背景：画布默认按 OpenAI 格式请求 {baseUrl}/v1/videos，
+ * 百炼及其兼容中转站没有这个接口（返回 404），必须用百炼自己的：
  *   创建：POST /api/v1/services/aigc/video-generation/video-synthesis
  *   查询：GET  /api/v1/tasks/{task_id}
  *
- * 怎么用：
- *   1. 在画布「配置 → 渠道」里编辑 wan2.7 这个渠道
- *   2. 接口地址填你的百炼 endpoint，例如：
- *      https://<你的WorkspaceId>.cn-beijing.maas.aliyuncs.com/api/v1
- *      （注意：结尾是 /api/v1，不是 /v1；脚本会用 request 原样拼接，不再自动加 /v1）
- *   3. 模型名填 wan2.7-i2v-2026-04-25
- *   4. 打开这个模型的「自定义脚本」，把本文件全文粘进去
- *   5. API Key 填百炼的 sk- 开头的 Key
+ * 怎么用（重要）：
+ *   1. 渠道「接口地址」保持你现在填的：https://maas.qianwenaiapi.com/compatible-mode/v1
+ *      —— 脚本会自动推导成 https://maas.qianwenaiapi.com，不用你改
+ *   2. 在模型列表里添加视频模型：wan2.7-i2v（或 wan2.7-i2v-2026-04-25、
+ *      wan2.6-i2v-flash、wan3.0-video 等）。
+ *      注意：不要再用 wan2.7-image / wan2.7-image-pro，那是图像模型，不出视频。
+ *   3. 给这个视频模型绑定「自定义脚本」，粘贴本文件全文
+ *   4. 用它重新生成
  *
- * 说明：首帧图直接用 dataURL 传给阿里云（官方支持，无需公网 URL）。
+ * 参考图：直接用画布里的图片（dataURL），百炼官方支持，无需公网 URL。
  */
 
 /**
- * 生成图生视频任务并等待结果。
- * @param {string} prompt 用户提示词
+ * 提交图生视频任务并等待完成。
+ * @param {string} prompt 用户提示词（已含系统提示词）
  * @param {string[]} images 参考图 dataURL 数组，第一张作为首帧
- * @param {string} model 模型名
- * @param {string} baseUrl 渠道接口地址（原样，已含 /api/v1）
- * @param {string} apiKey 百炼 API Key
+ * @param {string} model 模型名，如 wan2.7-i2v
+ * @param {string} baseUrl 渠道接口地址（原样）
+ * @param {string} apiKey API Key
  * @param {object} params 生成参数
  * @param {number} params.seconds 视频时长（秒）
  * @param {string} params.resolution 分辨率，如 720P
  * @param {boolean} params.watermark 是否加水印
  */
-async function wan27I2V(prompt, images, model, baseUrl, apiKey, params) {
-    const seconds = params.seconds || 10;
-    const resolution = (params.resolution || "720P").toUpperCase().includes("1080") ? "1080P" : "720P";
+async function wanI2V(prompt, images, model, baseUrl, apiKey, params) {
+    // 从 compatible-mode/v1 或 /v1 推回到 API 根，再拼百炼原生接口。
+    // 用绝对路径，绕过画布 request 对相对路径自动补 /v1 的行为。
+    const root = String(baseUrl || "").trim().replace(/\/+$/, "")
+        .replace(/\/compatible-mode\/v1$/i, "")
+        .replace(/\/api\/v1$/i, "")
+        .replace(/\/v1$/i, "");
+    if (!root) throw new Error("渠道接口地址为空");
 
-    // 关键：画布的 request 对相对路径会自动补 /v1，所以这里拼成绝对 URL 绕过它。
-    // baseUrl 传进来是原样的（例如 https://xxx.cn-beijing.maas.aliyuncs.com/api/v1），
-    // 去掉可能的结尾斜杠后直接拼阿里云的完整路径。
-    const root = String(baseUrl || "").trim().replace(/\/+$/, "");
-    const createUrl = `${root}/services/aigc/video-generation/video-synthesis`;
-    const taskUrl = (id) => `${root}/tasks/${id}`;
+    const createUrl = `${root}/api/v1/services/aigc/video-generation/video-synthesis`;
+    const taskUrl = (id) => `${root}/api/v1/tasks/${encodeURIComponent(id)}`;
+
+    const seconds = Number(params.seconds) || 10;
+    const resolution = String(params.resolution || "720P").toUpperCase().includes("1080") ? "1080P" : "720P";
+
     const media = [];
     if (images && images.length) {
         media.push({ type: "first_frame", url: images[0] });
         if (images.length > 1) media.push({ type: "last_frame", url: images[1] });
     }
+    if (!media.length) throw new Error("图生视频需要至少一张参考图");
 
-    const body = {
-        model: model || "wan2.7-i2v-2026-04-25",
-        input: { prompt, media },
-        parameters: {
-            resolution,
-            duration: seconds,
-            prompt_extend: true,
-            watermark: Boolean(params.watermark),
-        },
+    const headers = {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "X-DashScope-Async": "enable",
     };
 
     const created = await request({
         method: "POST",
         url: createUrl,
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "X-DashScope-Async": "enable",
+        headers,
+        data: {
+            model: model || "wan2.7-i2v",
+            input: { prompt, media },
+            parameters: {
+                resolution,
+                duration: seconds,
+                prompt_extend: true,
+                watermark: Boolean(params.watermark),
+            },
         },
-        data: body,
     });
 
     const taskId = created && created.output && created.output.task_id;
-    if (!taskId) throw new Error("阿里云没有返回 task_id：" + JSON.stringify(created));
+    if (!taskId) throw new Error("接口没有返回 task_id：" + JSON.stringify(created));
 
-    // 轮询任务，extract 返回真值即结束
-    const result = await poll(
-        () => request({
-            method: "GET",
-            url: taskUrl(taskId),
-            headers: { Authorization: `Bearer ${apiKey}` },
-        }),
+    // 视频要几分钟，15 秒查一次，最多等 15 分钟
+    const videoUrl = await poll(
+        () => request({ method: "GET", url: taskUrl(taskId), headers: { Authorization: `Bearer ${apiKey}` } }),
         (data) => {
             if (!data || !data.output) return null;
             const status = data.output.task_status;
             if (status === "FAILED") throw new Error("视频生成失败：" + (data.output.message || JSON.stringify(data.output)));
             if (status === "SUCCEEDED") {
-                const video = data.output.video_url || (data.output.result && data.output.result.video_url);
-                if (!video) throw new Error("任务成功但没有返回视频地址");
-                return video;
+                const out = data.output;
+                const url = out.video_url || (out.result && (out.result.video_url || out.result.url)) || (out.videos && out.videos[0] && out.videos[0].url);
+                if (!url) throw new Error("任务成功但没返回视频地址");
+                return url;
             }
             return null;
         },
         { intervalMs: 15000, timeoutMs: 900000 },
     );
 
-    return result;
+    return videoUrl;
 }
 
-return await wan27I2V({ prompt, images, model, baseUrl, apiKey, params });
+return await wanI2V({ prompt, images, model, baseUrl, apiKey, params });

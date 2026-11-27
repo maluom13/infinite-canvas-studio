@@ -909,15 +909,37 @@ export async function fetchImageModels(config: Pick<AiConfig, "baseUrl" | "apiKe
                 .filter((id): id is string => Boolean(id))
                 .sort((a, b) => a.localeCompare(b));
         }
-        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), {
-            headers: {
-                Authorization: `Bearer ${config.apiKey}`,
-            },
-        });
-        return (response.data.data || [])
-            .map((model) => model.id)
-            .filter((id): id is string => Boolean(id))
-            .sort((a, b) => a.localeCompare(b));
+        const headers = { Authorization: `Bearer ${config.apiKey}` };
+        const response = await axios.get<{ data?: Array<{ id?: string }>; error?: { message?: string } }>(buildApiUrl(config.baseUrl, "/models"), { headers });
+        const ids = new Set((response.data.data || []).map((model) => model.id).filter((id): id is string => Boolean(id)));
+
+        // 有些百炼中转站的 /compatible-mode/v1/models 只列 OpenAI 兼容模型（不含视频），
+        // 而 /api/v1/models 才有完整列表（含 wan2.7-i2v、kling、vidu 等）。
+        // 额外拉一次并合并；失败就忽略，不影响原有列表。
+        try {
+            const base = config.baseUrl.trim().replace(/\/+$/, "");
+            // baseUrl 形如 https://host/compatible-mode/v1，向上退到根再拼 /api/v1/models
+            const root = base.replace(/\/compatible-mode\/v1$/i, "").replace(/\/v1$/i, "");
+            type FullModelPayload = { output?: { models?: Array<{ model?: string }>; total?: number }; data?: Array<{ id?: string }> };
+            // 这个接口分页返回（默认每页 20），逐页拉到 total 为止，上限 30 页防止失控
+            let fetched = 0;
+            for (let page = 1; page <= 30; page += 1) {
+                const full = await axios.get<FullModelPayload>(withLocalProxy(`${root}/api/v1/models?page_no=${page}`), { headers, timeout: 15000 });
+                const models = full.data.output?.models || full.data.data || [];
+                if (!models.length) break;
+                for (const model of models) {
+                    const id = (model as { model?: string }).model || (model as { id?: string }).id;
+                    if (id) ids.add(id);
+                }
+                fetched += models.length;
+                const total = full.data.output?.total || 0;
+                if (!total || fetched >= total || models.length < 20) break;
+            }
+        } catch {
+            // 完整列表接口不可用：保留原列表
+        }
+
+        return [...ids].sort((a, b) => a.localeCompare(b));
     } catch (error) {
         throw new Error(readAxiosError(error, apiText("modelReadFailed")));
     }
