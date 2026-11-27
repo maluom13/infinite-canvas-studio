@@ -163,6 +163,27 @@ def sniff_ext(path: Path) -> str:
     return ""
 
 
+async def upload_reference_image(page, image_path: str) -> bool:
+    """把参考图上传到豆包输入框。豆包视频生成必须先有图，否则只会提示补图。"""
+    path = Path(image_path)
+    if not path.exists():
+        return False
+    # 豆包上传控件通常是隐藏的 input[type=file]，用 set_input_files 不受可见性限制
+    inputs = page.locator('input[type="file"]')
+    count = await inputs.count()
+    errors = []
+    for i in range(count):
+        try:
+            await inputs.nth(i).set_input_files(str(path))
+            await page.wait_for_timeout(1200)
+            return True
+        except Exception as error:
+            errors.append(str(error)[:80])
+    # 记录诊断信息：是「页面没有上传控件」还是「有但传不进去」
+    upload_reference_image.last_error = f"找到 {count} 个上传控件" + (f"：{errors[0]}" if errors else "")
+    return False
+
+
 async def run(args) -> None:
     JOBS.mkdir(parents=True, exist_ok=True)
     MEDIA.mkdir(parents=True, exist_ok=True)
@@ -178,6 +199,16 @@ async def run(args) -> None:
         await page.wait_for_timeout(1500)
         before = await collect_media(page)
         before_set = set(before["images"]) | set(before["videos"])
+
+        # 豆包视频是图生视频：必须先上传参考图，再写提示词。
+        if args.kind == "video" and args.image:
+            uploaded = await upload_reference_image(page, args.image)
+            if not uploaded:
+                detail = getattr(upload_reference_image, "last_error", "")
+                write_job(args.job, status="failed", message=f"参考图上传失败：{detail or '豆包页面上找不到上传控件'}。请在豆包窗口里确认已进入「视频生成」页面。")
+                return
+            write_job(args.job, status="running", message="参考图已上传，正在提交提示词…")
+
         box = page.locator("div.ProseMirror").first
         await box.click()
         await page.keyboard.type(args.prompt, delay=12)
@@ -247,6 +278,7 @@ def main() -> None:
     parser.add_argument("--job", required=True)
     parser.add_argument("--kind", choices=["image", "video"], required=True)
     parser.add_argument("--prompt", required=True)
+    parser.add_argument("--image", default="", help="参考图绝对路径；豆包视频生成必须提供")
     parser.add_argument("--timeout", type=int, default=420)
     args = parser.parse_args()
     try:

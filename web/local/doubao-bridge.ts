@@ -119,7 +119,7 @@ async function writeJob(home: string, job: Job) {
     await writeFile(path.join(home, "jobs", `${job.id}.json`), JSON.stringify(job), "utf8");
 }
 
-const queue: Array<{ id: string; kind: "image" | "video"; prompt: string }> = [];
+const queue: Array<{ id: string; kind: "image" | "video"; prompt: string; image?: string }> = [];
 let draining = false;
 
 async function drain() {
@@ -132,7 +132,9 @@ async function drain() {
             try {
                 await ensureBrowser(home);
                 await mkdir(path.join(home, "logs"), { recursive: true });
-                const child = spawn(pythonPath, [generateScript, "--job", task.id, "--kind", task.kind, "--prompt", task.prompt, "--timeout", task.kind === "video" ? "900" : "300"], {
+                const pyArgs = [generateScript, "--job", task.id, "--kind", task.kind, "--prompt", task.prompt, "--timeout", task.kind === "video" ? "900" : "300"];
+                if (task.image) pyArgs.push("--image", task.image);
+                const child = spawn(pythonPath, pyArgs, {
                     cwd: path.dirname(generateScript),
                     env: { ...process.env, DOUBAO_HOME: home, DOUBAO_CDP: `http://127.0.0.1:${cdpPort}`, PYTHONIOENCODING: "utf-8" },
                     stdio: "ignore",
@@ -151,12 +153,29 @@ async function drain() {
     }
 }
 
-async function enqueue(home: string, kind: "image" | "video", prompt: string) {
+async function enqueue(home: string, kind: "image" | "video", prompt: string, image?: string) {
     const id = `db_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     await writeJob(home, { id, kind, status: "queued", message: "排队中", createdAt: Date.now(), updatedAt: Date.now() });
-    queue.push({ id, kind, prompt });
+    queue.push({ id, kind, prompt, image });
     void drain();
     return id;
+}
+
+/** 从 multipart 请求体里抠出第一张图片，写到豆包目录，返回绝对路径给 Python。 */
+async function extractReferenceImage(home: string, raw: Buffer): Promise<string | undefined> {
+    // 画布会 append 两个字段：images 和 image[]，内容相同，取第一个即可。
+    const match = /name="(?:images|image\[\])"\r\nContent-Type:\s*([^\r\n]+)\r\n\r\n([\s\S]*?)\r\n--/.exec(raw.toString("binary"));
+    if (!match) return undefined;
+    const contentType = match[1].trim().toLowerCase();
+    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+    // binary 字符串要按 byte 还原，避免 UTF-8 破坏图片数据
+    const bytes = Buffer.from(match[2], "binary");
+    if (bytes.length < 100) return undefined;
+    const dir = path.join(home, "refs");
+    await mkdir(dir, { recursive: true });
+    const file = path.join(dir, `ref_${Date.now()}.${ext}`);
+    await writeFile(file, bytes);
+    return file;
 }
 
 const mediaTypes: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", mp4: "video/mp4" };
@@ -268,13 +287,17 @@ export function doubaoBridge(): Plugin {
                             return json(200, { object: "image.task", task_id: job.id, status: "processing", message: job.message || "生成中" });
                         }
                         if (url.pathname === "/doubao/v1/videos" && req.method === "POST") {
-                            const raw = (await readBody()).toString("utf8");
-                            const prompt = /name="prompt"\r\n\r\n([\s\S]*?)\r\n--/.exec(raw)?.[1] || /name="prompt"\r\n\r\n([\s\S]*)$/.exec(raw)?.[1] || "";
-                            const size = /name="size"\r\n\r\n([\s\S]*?)\r\n--/.exec(raw)?.[1] || "";
+                            const raw = await readBody();
+                            const text = raw.toString("utf8");
+                            const prompt = /name="prompt"\r\n\r\n([\s\S]*?)\r\n--/.exec(text)?.[1] || /name="prompt"\r\n\r\n([\s\S]*)$/.exec(text)?.[1] || "";
+                            const size = /name="size"\r\n\r\n([\s\S]*?)\r\n--/.exec(text)?.[1] || "";
                             if (!prompt.trim()) return json(400, { error: { message: "提示词不能为空" } });
                             const session = await readSession(home);
                             if (!session.loggedIn) return json(401, { error: { message: "豆包还没有登录，请先在设置的「豆包」里登录。" } });
-                            const id = await enqueue(home, "video", `${prompt.trim()}${ratioHint(size)}`);
+                            // 豆包视频必须先上传参考图，画布没传图就早点说清楚，别让用户干等
+                            const image = await extractReferenceImage(home, raw);
+                            if (!image) return json(400, { error: { message: "豆包视频需要一张参考图：请先生成或选择一张图片，把它连到视频节点，再点生成。" } });
+                            const id = await enqueue(home, "video", `${prompt.trim()}${ratioHint(size)}`, image);
                             return json(200, { id, status: "queued", object: "video" });
                         }
                         const videoTask = /^\/doubao\/v1\/videos\/([A-Za-z0-9_-]+)$/.exec(url.pathname);
