@@ -531,6 +531,8 @@ export default {
             name: "渠道名称",
             protocol: "协议",
             baseUrl: "接口地址",
+            requestPath: "视频请求地址：",
+            pathDuplicated: "路径重复了 /v1，请从接口地址末尾去掉 /v1",
             models: "渠道模型",
             modelDescription: "已选 {{count}} 个；为每个模型指定能力并可自定义调用脚本。",
             selectModels: "选择模型",

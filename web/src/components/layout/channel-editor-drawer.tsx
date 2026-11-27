@@ -76,6 +76,18 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">{t("config.channelEditor.baseUrl")}</span>
                     <Input value={draft.baseUrl} onChange={(event) => patch({ baseUrl: event.target.value })} placeholder="https://api.example.com" />
+                    {(() => {
+                        const raw = draft.baseUrl.trim().replace(/\/+$/, "");
+                        if (!raw) return null;
+                        const apiBase = raw.toLowerCase().endsWith("/v1") ? raw : `${raw}/v1`;
+                        const doubled = /\/v1\/v1(\/|$)/i.test(`${apiBase}/videos`);
+                        return (
+                            <div className={`mt-1 break-all font-mono text-[11px] ${doubled ? "text-red-500" : "text-stone-500"}`}>
+                                {t("config.channelEditor.requestPath")} {apiBase}/videos
+                                {doubled ? ` · ${t("config.channelEditor.pathDuplicated")}` : ""}
+                            </div>
+                        );
+                    })()}
                 </label>
                 <label className="block md:col-span-2">
                     <span className="mb-1 block text-sm font-medium">API Key</span>
