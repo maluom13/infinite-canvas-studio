@@ -1,6 +1,8 @@
 # Infinite Canvas Agent
 
-本地 Canvas Agent 用来连接画布网页和用户电脑上的 Codex / Claude Code。本地开发时优先连接 `http://localhost:3000`，不需要先使用线上站点。
+本地 Canvas Agent 用来连接画布网页和用户电脑上的 Codex / Claude Code。本项目的画布是 `http://localhost:3010`（桌面「无限画布」快捷方式打开的就是它）。
+
+注意：`localhost:3000` 是另一个第三方软件（MuseCanvas）自带的画布，不是本项目。不要连它，也不要在文档里把 3000 当成本项目的默认地址。
 
 ## 启动
 

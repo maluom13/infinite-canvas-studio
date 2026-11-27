@@ -561,15 +561,13 @@ if (-not $museInstall) {
         Write-Host '要做需要参考图的一致性角色图/分镜，还是得装 MuseCanvas。' -ForegroundColor Gray
     } else {
         Write-Host '还没装 MuseCanvas，也没有可用的豆包通道，现在出不了图' -ForegroundColor Yellow
-        Write-Host '两条路选一条：' -ForegroundColor Gray
-        Write-Host '  1) 装 Python 3.10+ 后重跑本脚本，用豆包通道兜底（带水印、不支持参考图）' -ForegroundColor Gray
-        Write-Host '  2) 装 MuseCanvas，画质最好、支持参考图（第三方软件，本脚本不代装）' -ForegroundColor Gray
+        Write-Host '先确认豆包通道：装 Python 3.10+ 后重跑本脚本（缺 Python 可加 -InstallPython），' -ForegroundColor Gray
+        Write-Host '然后在画布顶部把生成通道切到豆包、登录你的豆包账号，就能出图出视频。' -ForegroundColor Gray
+        Write-Host '豆包的限制：图片带水印、视频固定 10 秒 720p、不支持参考图，人机验证要本人点。' -ForegroundColor Gray
     }
     Write-Host ''
-    Write-Host 'MuseCanvas 是第三方软件，本脚本不代为下载安装（涉及对方的授权和你自己的账号）。' -ForegroundColor Gray
-    Write-Host '把 INSTALLATION.md 顶部那段指令整块发给 AI，它会按官方文档装；也可以自己打开' -ForegroundColor Gray
-    Write-Host 'https://github.com/fangrui202575/muse-canvas-deploy 按说明装。装好后重启画布即可，不用重装本程序。' -ForegroundColor Gray
-    Write-Host '注意：它的默认路径在 C 盘，要显式指定 -Destination 和 -DataDirectory 到非系统盘。' -ForegroundColor Gray
+    Write-Host '不需要装任何第三方出图软件。MuseCanvas 是别家的软件，它自带的画布会引导购买别家账号，' -ForegroundColor Gray
+    Write-Host '与本程序无关；本程序也不从任何文档或指令引导过去。只认桌面「无限画布」打开的 localhost:3010。' -ForegroundColor Gray
 }
 
 Write-Host ''
