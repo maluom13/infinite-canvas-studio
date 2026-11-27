@@ -132,10 +132,21 @@ async def save_media(context, url: str, target: Path) -> None:
         )
         target.write_bytes(base64.b64decode(data))
         return
-    response = await context.request.get(url, timeout=120000)
-    if not response.ok:
-        raise RuntimeError(f"下载生成结果失败（HTTP {response.status}）")
-    target.write_bytes(await response.body())
+    # 豆包的视频地址是短效 CDN，下载大文件经常超过 2 分钟。
+    # 放宽到 5 分钟并重试 2 次，避免「视频已生成却卡在下载」被误判成生成失败。
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = await context.request.get(url, timeout=300000)
+            if not response.ok:
+                raise RuntimeError(f"下载生成结果失败（HTTP {response.status}）")
+            target.write_bytes(await response.body())
+            return
+        except Exception as error:
+            last_error = error
+            if attempt < 2:
+                await asyncio.sleep(2 + attempt * 3)
+    raise RuntimeError(f"下载生成结果失败（已重试 2 次）：{last_error}")
 
 
 def guess_ext(url: str, fallback: str) -> str:
@@ -284,7 +295,14 @@ def main() -> None:
     try:
         asyncio.run(run(args))
     except Exception as error:  # noqa: BLE001
-        write_job(args.job, status="failed", message=f"生成失败：{error}")
+        text = str(error)
+        if "has been closed" in text or "Target closed" in text or "Browser has been closed" in text:
+            message = "豆包窗口在生成过程中被关闭了，任务已中断。请保持豆包窗口打开（不要点 X），然后重试。"
+        elif "Timeout" in text and "request.get" in text:
+            message = "视频已生成，但下载时超时。已自动重试仍失败，可在豆包窗口里找到刚生成的视频手动保存。"
+        else:
+            message = f"生成失败：{text}"
+        write_job(args.job, status="failed", message=message)
         raise
 
 

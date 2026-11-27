@@ -49,13 +49,18 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
     return waitForVideoGenerationTask(config, await createVideoGenerationTask(config, prompt, references, options), options);
 }
 
+const isDoubaoLocal = (config: AiConfig) => /doubao/i.test(config.baseUrl);
+
 export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationResult> {
-    for (let attempt = 0; attempt < 120; attempt += 1) {
+    // 豆包是网页自动化生成，3–5 分钟很常见，还得下载视频文件，
+    // 用默认的 5 分钟（120×2.5s）容易误判成「生成超时」。给它 15 分钟。
+    const maxAttempts = isDoubaoLocal(config) ? 360 : 120;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         const state = await pollVideoGenerationTask(config, task, options);
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw videoTaskFailed(state.error);
-        if (attempt === 119) throw new Error(apiText("videoTimeout", { provider: "" }));
+        if (attempt === maxAttempts - 1) throw new Error(apiText("videoTimeout", { provider: "" }));
         await delay(2500, options?.signal);
     }
     throw new Error(apiText("videoTimeout", { provider: "" }));
