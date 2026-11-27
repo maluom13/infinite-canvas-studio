@@ -1,6 +1,8 @@
 import axios from "axios";
 import { nanoid } from "nanoid";
 
+import { formatApiError } from "./api-error";
+
 import i18n from "@/i18n";
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
@@ -200,7 +202,7 @@ async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, 
             await assertVideoBlob(content.data);
             return { status: "completed", result: { blob: content.data } };
         }
-        if (video.status === "failed" || video.status === "cancelled") return { status: "failed", error: readApiErrorMessage(video.error?.message) || apiText("videoGenerationFailed") };
+        if (video.status === "failed" || video.status === "cancelled") return { status: "failed", error: formatApiError(undefined, video.error, apiText("videoGenerationFailed")) };
         return { status: "pending" };
     } catch (error) {
         throw new Error(readAxiosError(error, apiText("videoTaskQueryFailed")));
@@ -391,19 +393,13 @@ function readApiErrorMessage(value: unknown): string {
 
 function readAxiosError(error: unknown, fallback: string) {
     if (axios.isCancel(error)) return apiText("requestCanceled");
-    if (axios.isAxiosError<{ error?: { message?: string }; msg?: string; message?: string; code?: number | string }>(error)) {
+    if (axios.isAxiosError(error)) {
         if (!error.response && error.code === "ERR_NETWORK") return apiText("requestFailed");
-        const responseData = error.response?.data;
-        return readApiErrorMessage(responseData) || statusMessage(error.response?.status, fallback);
+        // 把服务端返回的原因和错误码一起带出来，不要只显示「视频任务创建失败（404）」。
+        return formatApiError(error.response?.status, error.response?.data, fallback);
     }
     if (error instanceof DOMException && error.name === "AbortError") return apiText("requestCanceled");
-    return error instanceof Error ? readApiErrorMessage(error.message) || error.message : fallback;
-}
-
-function statusMessage(status: number | undefined, fallback: string) {
-    if (status === 401 || status === 403) return apiText("authenticationFailed");
-    if (status === 429) return apiText("rateLimited");
-    return status ? `${fallback}（${status}）` : fallback;
+    return error instanceof Error ? formatApiError(undefined, error.message, fallback) : fallback;
 }
 
 async function assertVideoBlob(blob: Blob) {

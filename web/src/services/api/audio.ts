@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { extractApiCode, explainStatus } from "./api-error";
+
 import i18n from "@/i18n";
 import { audioMimeType, normalizeAudioFormatValue, normalizeAudioSpeedValue, normalizeAudioVoiceValue } from "@/lib/audio-generation";
 import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
@@ -138,7 +140,12 @@ function readAxiosError(error: unknown, fallback: string) {
         if (!error.response && error.code === "ERR_NETWORK") return apiText("requestFailed");
         const responseData = error.response?.data;
         const apiMsg = readApiErrorMessage(responseData);
-        if (apiMsg) return apiMsg;
+        if (apiMsg) {
+            const code = extractApiCode(responseData);
+            const explanation = explainStatus(error.response?.status, apiMsg);
+            const extra = [code && code !== apiMsg ? `错误码：${code}` : "", explanation && explanation !== apiMsg ? explanation : ""].filter(Boolean);
+            return extra.length ? `${apiMsg} · ${extra.join(" · ")}` : apiMsg;
+        }
         const statusMsg = statusMessage(error.response?.status, fallback);
         if (statusMsg) return statusMsg;
         return error.message || fallback;

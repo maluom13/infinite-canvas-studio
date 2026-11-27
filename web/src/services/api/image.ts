@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { extractApiCode, explainStatus } from "./api-error";
+
 import i18n from "@/i18n";
 import { buildApiUrl, resolveModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import { normalizePluginImages, runModelPlugin } from "./model-plugin";
@@ -315,7 +317,12 @@ function readAxiosError(error: unknown, fallback: string) {
         const responseData = error.response?.data;
         // Prefer the API error from the response body.
         const apiMsg = readApiErrorMessage(responseData);
-        if (apiMsg) return apiMsg;
+        if (apiMsg) {
+            const code = extractApiCode(responseData);
+            const explanation = explainStatus(error.response?.status, apiMsg);
+            const extra = [code && code !== apiMsg ? `错误码：${code}` : "", explanation && explanation !== apiMsg ? explanation : ""].filter(Boolean);
+            return extra.length ? `${apiMsg} · ${extra.join(" · ")}` : apiMsg;
+        }
         // Infer the error from the HTTP status when the response body has no usable message.
         const statusMsg = readStatusError(error.response?.status, fallback);
         if (statusMsg) return statusMsg;
