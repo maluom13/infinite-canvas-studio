@@ -15,6 +15,7 @@ import { depthBridge } from "./local/depth-bridge";
 import { videoStoryBridge } from "./local/video-story-bridge";
 import { canvasClassifyBridge } from "./local/canvas-classify-bridge";
 import { remakeBridge } from "./local/remake-bridge";
+import { usageBridge } from "./local/usage-bridge";
 
 const webDir = dirname(fileURLToPath(import.meta.url));
 const localVersion = readFileSync(resolve(webDir, "../VERSION"), "utf8").trim() || "dev";
@@ -50,7 +51,7 @@ function localPluginsManifest(): Plugin {
 
 export default defineConfig({
     base: process.env.VITE_BASE || "/",
-    plugins: [react(), localPluginsManifest(), museBridge(), localAgentConnection(), codexLogin(), depthBridge(), videoStoryBridge(), canvasClassifyBridge(), remakeBridge(), publicationCopyBridge(), publicationAccountBridge(), doubaoBridge()],
+    plugins: [react(), localPluginsManifest(), museBridge(), localAgentConnection(), codexLogin(), depthBridge(), videoStoryBridge(), canvasClassifyBridge(), remakeBridge(), publicationCopyBridge(), publicationAccountBridge(), doubaoBridge(), usageBridge()],
     resolve: {
         alias: {
             "@": resolve(webDir, "src"),

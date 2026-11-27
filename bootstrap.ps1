@@ -46,12 +46,18 @@ if ((Test-Path -LiteralPath (Join-Path $Destination 'VERSION')) -and -not $Force
 Write-Step '下载程序文件'
 
 $repo = 'maluom13/infinite-canvas-studio'
+# 安装包单独放在 Release 里，GitHub 会统计每个 asset 的下载次数。
+# 这样「装了多少份」是官方数字、匿名可读、永久保留，也不可能被随便刷。
+# 镜像站只用于网络不通时的兜底，不计入统计。
+$releaseVersion = 'v0.20.1'
+$asset = "lingjing-canvas-install-$releaseVersion.zip"
+$releaseUrl = "https://github.com/$repo/releases/download/$releaseVersion/$asset"
 $urls = @(
-    "https://codeload.github.com/$repo/zip/refs/heads/main",
-    "https://github.com/$repo/archive/refs/heads/main.zip",
-    "https://ghfast.top/https://github.com/$repo/archive/refs/heads/main.zip",
-    "https://gh-proxy.com/https://github.com/$repo/archive/refs/heads/main.zip",
-    "https://ghproxy.net/https://github.com/$repo/archive/refs/heads/main.zip"
+    $releaseUrl,
+    "https://ghfast.top/$releaseUrl",
+    "https://gh-proxy.com/$releaseUrl",
+    "https://ghproxy.net/$releaseUrl",
+    "https://github.com/$repo/archive/refs/tags/$releaseVersion.zip"
 )
 
 $work = Join-Path $env:TEMP ("canvas-setup-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))

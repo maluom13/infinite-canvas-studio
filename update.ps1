@@ -76,14 +76,17 @@ if ($current -eq $Version -and -not $Force) {
 # ---------------------------------------------------------------------------
 Write-Step '下载新版文件'
 
-$tag = $Version.TrimStart('v')
 $repo = 'maluom13/infinite-canvas-studio'
+# 更新包单独放在 Release 里，GitHub 会统计下载次数（和全新安装分开）。
+# 镜像站只用于网络不通时兜底，不计入统计。
+$asset = "lingjing-canvas-update-$Version.zip"
+$releaseUrl = "https://github.com/$repo/releases/download/$Version/$asset"
 $urls = @(
-    "https://codeload.github.com/$repo/zip/refs/tags/$Version",
-    "https://github.com/$repo/archive/refs/tags/$Version.zip",
-    "https://ghfast.top/https://github.com/$repo/archive/refs/tags/$Version.zip",
-    "https://gh-proxy.com/https://github.com/$repo/archive/refs/tags/$Version.zip",
-    "https://ghproxy.net/https://github.com/$repo/archive/refs/tags/$Version.zip"
+    $releaseUrl,
+    "https://ghfast.top/$releaseUrl",
+    "https://gh-proxy.com/$releaseUrl",
+    "https://ghproxy.net/$releaseUrl",
+    "https://github.com/$repo/archive/refs/tags/$Version.zip"
 )
 
 $work = Join-Path $env:TEMP ("canvas-update-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
