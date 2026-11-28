@@ -49,8 +49,74 @@ if (-not $Destination) {
 if (-not $Destination) {
     if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'VERSION')) { $Destination = $PSScriptRoot }
 }
+# 服务没在跑、脚本又是从网上下到 TEMP 里执行的（常态），只能自己找。
+# 先试常见目录名，再扫非系统盘根下的一层子目录（只看 VERSION，不深扫，很快）。
 if (-not $Destination) {
-    Write-Bad '找不到程序目录。请把本脚本放到程序目录里运行，或用 -Destination 指定。'
+    Write-Host '  服务没在运行，正在本机查找程序目录…' -ForegroundColor Gray
+    $found = @()
+    # 必扫的名字（bootstrap 默认目录名等）
+    $names = @('LingJingCanvas', 'InfiniteCanvas', 'infinite-canvas', '灵境画布', '无限画布')
+    $roots = @()
+    foreach ($drive in (Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue)) {
+        if ($drive.Root -and (Test-Path -LiteralPath $drive.Root)) { $roots += $drive.Root }
+    }
+    # 程序默认装在非系统盘，先扫它们，避免扫描预算被 C 盘耗光
+    $roots = @($roots | Where-Object { $_ -notmatch '^[Cc]:' }) + @($roots | Where-Object { $_ -match '^[Cc]:' })
+    foreach ($root in $roots) {
+        foreach ($name in $names) {
+            $candidate = Join-Path $root $name
+            if (Test-Path -LiteralPath (Join-Path $candidate 'VERSION')) { $found += $candidate }
+        }
+    }
+    # 还没找到：浅递归找名字像本程序的目录（跳过系统和大目录，最多看 3000 个，找到即停）
+    if (-not $found) {
+        $skip = @('Windows', 'Program Files', 'Program Files (x86)', 'ProgramData', '$Recycle.Bin', 'System Volume Information', 'node_modules', '.git', 'AppData', 'Recovery', 'PerfLogs', 'MSOCache')
+        $pattern = '(?i)canvas|lingjing|灵境|无限|画布'
+        $budget = 3000
+        $walker = {
+            param($dir, $depth)
+            if ($depth -gt 3 -or $script:found.Count -gt 0 -or $script:budget -le 0) { return }
+            try {
+                foreach ($child in (Get-ChildItem -LiteralPath $dir -Directory -ErrorAction SilentlyContinue)) {
+                    $script:budget--
+                    if ($script:budget -le 0 -or $script:found.Count -gt 0) { return }
+                    if ($skip -contains $child.Name) { continue }
+                    if (Test-Path -LiteralPath (Join-Path $child.FullName 'VERSION')) {
+                        if ($child.Name -match $pattern) { $script:found += $child.FullName; return }
+                    }
+                    if ($child.Name -match $pattern -or $depth -lt 2) { & $walker $child.FullName ($depth + 1) }
+                }
+            } catch { }
+        }
+        $script:found = @()
+        $script:budget = $budget
+        foreach ($root in $roots) { & $walker $root 0 }
+        $found = $script:found
+    }
+    # 必须强制成数组：只有一个结果时 Select-Object 会返回标量字符串，
+    # 后面 $found[0] 就会取到第一个字符（曾因此把 "D:\..." 变成 "D"）。
+    $found = @($found | Select-Object -Unique)
+    if ($found.Count -eq 1) {
+        $Destination = $found[0]
+        Write-Ok "已找到程序目录：$Destination"
+    } elseif ($found.Count -gt 1) {
+        Write-Warn2 "找到多个可能是程序目录的位置："
+        $found | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+        # 优先带 canvas.config.json 的那个（真正的运行目录）
+        $withConfig = $found | Where-Object { Test-Path -LiteralPath (Join-Path $_ 'canvas.config.json') } | Select-Object -First 1
+        $Destination = if ($withConfig) { $withConfig } else { $found[0] }
+        Write-Ok "选用：$Destination"
+        Write-Host '  如果不是这个目录，重跑时加 -Destination "正确路径"' -ForegroundColor Gray
+    }
+}
+if (-not $Destination) {
+    Write-Bad '找不到程序目录。'
+    Write-Host ''
+    Write-Host '  两种办法：' -ForegroundColor Gray
+    Write-Host '   1) 先把画布打开（桌面「无限画布」），再运行本脚本——它会自己问运行中的服务' -ForegroundColor Gray
+    Write-Host '   2) 直接指定目录，例如：' -ForegroundColor Gray
+    Write-Host '      u.ps1 -Destination "D:\LingJingCanvas"' -ForegroundColor Gray
+    Write-Host '  不知道装在哪：打开 桌面「无限画布」→ 画布右上角版本号弹窗里显示程序目录' -ForegroundColor Gray
     exit 1
 }
 $Destination = [System.IO.Path]::GetFullPath($Destination)
