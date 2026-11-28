@@ -46,7 +46,7 @@ export async function resolveInstallPath(): Promise<string> {
     for (const candidate of candidates) {
         if (await exists(candidate)) return candidate;
     }
-    throw new Error("本机没有找到 MuseCanvas。Muse 的登录窗口由 MuseCanvas 提供，没有它就无法登录 Muse —— 请先安装 MuseCanvas，或改用豆包通道出图。若已安装但不在常见位置，在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\\install.json。");
+    throw new Error("Muse 通道未启用（可选功能）。出图不需要它——请把画布顶部的生成通道切到「豆包」并登录豆包账号，即可出图出视频。若你机器上本来就装了 MuseCanvas，可在 canvas.config.json 里把 museInstall 指向它的 MuseCanvasData\\install.json 来启用 Muse 通道。");
 }
 
 const readInstallation = async (): Promise<Installation> => JSON.parse(await readFile(await resolveInstallPath(), "utf8"));
@@ -122,12 +122,12 @@ export function createMuseBridge(options: BridgeOptions = {}) {
                     return json(200, {
                         ok: false,
                         bridge: BRIDGE_VERSION,
-                        steps: [{ name: "MuseCanvas 配置", ok: false, detail: error instanceof Error ? error.message : "读不到 install.json", fix: "先安装 MuseCanvas（第三方软件，Muse 的登录窗口由它提供），或改用豆包通道出图。" }],
-                        summary: "本机没有 MuseCanvas，所以没有可用的 Muse 登录窗口。这不是画布的故障。",
+                        steps: [{ name: "Muse 通道", ok: false, detail: error instanceof Error ? error.message : "读不到 install.json", fix: "用豆包通道出图：画布顶部把生成通道切到「豆包」并登录即可。Muse 通道是可选功能，不装也能正常出图。" }],
+                        summary: "Muse 通道未启用（可选）。这不影响出图——本程序用自带的豆包通道。",
                         notes: [
-                            "Muse 登录不是画布自己做的：画布只是把登录请求转给本机的 MuseCanvas。",
-                            "没有安装 MuseCanvas，或者装了但没启动，都会表现成「点登录没反应 / 无法获取」。",
-                            "暂时不想装 MuseCanvas，就先用豆包通道出图（安装脚本已准备好，登录后即可用）。",
+                            "出图不需要 Muse：在画布顶部把生成通道切到「豆包」，登录豆包账号即可。",
+                            "Muse 通道只是可选项，需要你自己已有 MuseCanvas 才能用，本程序不提供也不引导购买账号。",
+                            "如果你机器上本来就装了 MuseCanvas 并想用它，在 canvas.config.json 里把 museInstall 指向它的 install.json。",
                         ],
                     });
                 }

@@ -1,6 +1,6 @@
 ﻿param(
     [string]$Destination = '',
-    [string]$Version = 'v0.21.2',
+    [string]$Version = 'v0.21.3',
     [string]$FromZip = '',
     [switch]$Force,
     [switch]$NoStart

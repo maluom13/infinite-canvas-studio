@@ -134,7 +134,7 @@ else { Add-Result 'fail' '浏览器' '未找到 Chrome 或 Edge。画布需要�
 # ---------------------------------------------------------------------------
 # 4. MuseCanvas（第三方，只检测不安装）
 # ---------------------------------------------------------------------------
-Write-Step '检查 MuseCanvas（第三方软件，不由本脚本安装）'
+Write-Step '检查可选的 Muse 通道（第三方软件，不由本脚本安装，没有也不影响出图）'
 
 $museInstall = $null
 foreach ($p in @(
@@ -158,7 +158,7 @@ if ($museInstall) {
 } elseif ($museRunning) {
     Add-Result 'warn' 'MuseCanvas 在运行但找不到配置' "服务有响应，但读不到 install.json。请在 canvas.config.json 里把 museInstall 指向 MuseCanvasData\install.json"
 } else {
-    Add-Result 'warn' 'MuseCanvas 未安装' '画布能打开和编辑，但出不了图。安装方法见下方说明'
+    Add-Result 'pass' 'Muse 通道未使用' '不影响出图：本程序用自带的豆包通道，装完登录豆包即可'
 }
 
 # ---------------------------------------------------------------------------
@@ -555,12 +555,11 @@ if (-not $museInstall) {
     Write-Host ''
     Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
     if ($doubaoReady) {
-        Write-Host '本机没有 MuseCanvas：先用豆包通道出图' -ForegroundColor Yellow
-        Write-Host '在画布顶部把生成通道切到豆包，登录后即可用（无需再装别的）。' -ForegroundColor Gray
+        Write-Host '豆包通道已就绪，装完就能出图出视频' -ForegroundColor Green
+        Write-Host '在画布顶部把生成通道切到豆包，登录你的豆包账号即可（不需要再装别的软件）。' -ForegroundColor Gray
         Write-Host '豆包的限制要知道：图片带水印、视频固定 10 秒 720p、不支持参考图，人机验证需你本人点。' -ForegroundColor Gray
-        Write-Host '要做需要参考图的一致性角色图/分镜，还是得装 MuseCanvas。' -ForegroundColor Gray
     } else {
-        Write-Host '还没装 MuseCanvas，也没有可用的豆包通道，现在出不了图' -ForegroundColor Yellow
+        Write-Host '豆包通道还没准备好，现在出不了图' -ForegroundColor Yellow
         Write-Host '先确认豆包通道：装 Python 3.10+ 后重跑本脚本（缺 Python 可加 -InstallPython），' -ForegroundColor Gray
         Write-Host '然后在画布顶部把生成通道切到豆包、登录你的豆包账号，就能出图出视频。' -ForegroundColor Gray
         Write-Host '豆包的限制：图片带水印、视频固定 10 秒 720p、不支持参考图，人机验证要本人点。' -ForegroundColor Gray

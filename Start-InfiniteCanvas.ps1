@@ -91,7 +91,7 @@ function Test-Endpoint($url) {
 }
 
 # ---------------------------------------------------------------------------
-# MuseCanvas：别人的安装，路径可能在任意磁盘。找不到就跳过，不阻塞画布
+# Muse 通道是可选增强（别人的软件，路径可能在任意磁盘）。找不到就跳过——本程序用自带豆包通道出图，不需要它
 # ---------------------------------------------------------------------------
 $museLauncher = Get-Cfg 'museLauncher' ''
 if (-not $museLauncher) {
@@ -106,7 +106,8 @@ if (-not ((Test-Endpoint 'http://127.0.0.1:18610/healthz') -and (Test-Endpoint '
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $museLauncher -NoBrowser
         if ($LASTEXITCODE -ne 0) { Write-Warning 'Muse 服务启动失败。画布仍会打开，可在画布顶部 Muse 面板查看状态。' }
     } else {
-        Write-Warning '未找到 MuseCanvas，生成能力不可用。请先安装 MuseCanvas 并确认能登录。'
+        # 没有 MuseCanvas 是正常情况：本程序用自带豆包通道，不需要它
+        Write-Host '   Muse 通道未启用（可选）。出图请在画布顶部把通道切到豆包并登录。' -ForegroundColor Gray
     }
 }
 

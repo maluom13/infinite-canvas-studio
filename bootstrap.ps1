@@ -49,7 +49,7 @@ $repo = 'maluom13/infinite-canvas-studio'
 # 安装包单独放在 Release 里，GitHub 会统计每个 asset 的下载次数。
 # 这样「装了多少份」是官方数字、匿名可读、永久保留，也不可能被随便刷。
 # 镜像站只用于网络不通时的兜底，不计入统计。
-$releaseVersion = 'v0.21.2'
+$releaseVersion = 'v0.21.3'
 $asset = "lingjing-canvas-install-$releaseVersion.zip"
 $releaseUrl = "https://github.com/$repo/releases/download/$releaseVersion/$asset"
 $urls = @(
