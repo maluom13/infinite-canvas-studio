@@ -28,7 +28,7 @@
 > - **布局与交互**：自动整理改为每列 6 个、行高按行计算；重跑生成时清理旧失败节点；生成中防重复提交
 > - **本机路径可配置**：所有路径与外部程序位置集中在 `web/local/runtime-paths.ts` 与 `canvas.config.json`，换机器不用改代码
 >
-> 以上改动同样以 MIT 许可提供。MuseCanvas（流量池与生成协议）是第三方独立产品，不在本仓库内。
+> 以上改动同样以 MIT 许可提供。本仓库自带豆包通道，装完即可出图出视频，不需要第三方生成软件。
 
 <p align="center">
   <a href="https://linux.do/"><img src="https://img.shields.io/badge/Linux.do-Community-2b6de8?style=flat-square" alt="Linux.do"></a>
