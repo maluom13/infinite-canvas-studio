@@ -188,22 +188,24 @@ powershell -ExecutionPolicy Bypass -File .\Stop-InfiniteCanvas.ps1
 在**要更新的那台机器**上打开 PowerShell（开始菜单右键 → 终端），粘贴这一整行：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/maluom13/infinite-canvas-studio@main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
-```
-
-它会自动完成：**找到程序目录**（问运行中的服务要 `projectRoot`，不用你自己找）→ 多源下载 → 核对包内版本 → 停止服务 → 覆盖（保留 `canvas.config.json` 与数据目录）→ 启动。
-
-如果上面那条连不上，换其中任意一条：
-
-```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
 ```
+
+它会自动完成：**找到程序目录**（画布开着就问服务要位置；没开就自动扫盘找，不用你自己找）→ 多源下载 → 核对包内版本 → 停止服务 → 覆盖（保留 `canvas.config.json` 与数据目录）→ 启动。
+
+> 用 `raw.githubusercontent.com` 而不是 jsDelivr：jsDelivr 对 `@main` 有最长 12 小时缓存，可能拿到旧脚本。要用 jsDelivr 请换成带版本号的地址，例如 `@v0.21.4`。
+
+如果上面那条连不上，按顺序换：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://ghfast.top/https://raw.githubusercontent.com/maluom13/infinite-canvas-studio/main/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
 ```
 
-**如果三条都不通**（那台机器基本连不上外网）：在能上网的电脑下载 ZIP，用 U 盘或聊天工具传过去，然后手动覆盖，步骤见下。
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://cdn.jsdelivr.net/gh/maluom13/infinite-canvas-studio@v0.21.4/update.ps1 -OutFile $env:TEMP\u.ps1; & $env:TEMP\u.ps1"
+```
+
+**三条都不通**（那台机器基本连不上外网）：在能上网的电脑下载 ZIP，用 U 盘或聊天工具传过去，然后手动覆盖，步骤见下。
 
 ### 手动更新（连不上外网时）
 
