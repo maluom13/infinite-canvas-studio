@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 
+import { extractMultipartImage } from "./multipart-image";
 import { dataPath } from "./runtime-paths";
 
 /** 豆包是独立账号与独立生成通道：登录态、浏览器、任务、作品都在自己的目录，不碰 Muse。 */
@@ -163,18 +164,12 @@ async function enqueue(home: string, kind: "image" | "video", prompt: string, im
 
 /** 从 multipart 请求体里抠出第一张图片，写到豆包目录，返回绝对路径给 Python。 */
 async function extractReferenceImage(home: string, raw: Buffer): Promise<string | undefined> {
-    // 画布会 append 两个字段：images 和 image[]，内容相同，取第一个即可。
-    const match = /name="(?:images|image\[\])"\r\nContent-Type:\s*([^\r\n]+)\r\n\r\n([\s\S]*?)\r\n--/.exec(raw.toString("binary"));
-    if (!match) return undefined;
-    const contentType = match[1].trim().toLowerCase();
-    const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
-    // binary 字符串要按 byte 还原，避免 UTF-8 破坏图片数据
-    const bytes = Buffer.from(match[2], "binary");
-    if (bytes.length < 100) return undefined;
+    const image = extractMultipartImage(raw);
+    if (!image) return undefined;
     const dir = path.join(home, "refs");
     await mkdir(dir, { recursive: true });
-    const file = path.join(dir, `ref_${Date.now()}.${ext}`);
-    await writeFile(file, bytes);
+    const file = path.join(dir, `ref_${Date.now()}.${image.ext}`);
+    await writeFile(file, image.bytes);
     return file;
 }
 
